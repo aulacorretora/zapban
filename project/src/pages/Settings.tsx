@@ -74,6 +74,23 @@ const Settings: React.FC = () => {
       if (data && data.qrCode) {
         setQrCode(data.qrCode);
         setShowQRCode(true);
+        
+        const checkStatusInterval = setInterval(async () => {
+          const statusData = await getInstanceStatus(instanceId);
+          if (statusData && statusData.status === 'CONNECTED') {
+            setInstanceStatus('CONNECTED');
+            setShowQRCode(false);
+            clearInterval(checkStatusInterval);
+            toast.success('WhatsApp connected successfully');
+          }
+        }, 2000);
+        
+        setTimeout(() => {
+          clearInterval(checkStatusInterval);
+          if (instanceStatus !== 'CONNECTED') {
+            toast.error('QR code expired. Please try again.');
+          }
+        }, 60000);
       } else {
         toast.error('Failed to generate QR code');
       }
