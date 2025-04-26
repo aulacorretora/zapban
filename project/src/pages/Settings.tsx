@@ -1,25 +1,104 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Phone, RefreshCw, Save, Trash2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import QRCodeDisplay from '../components/WhatsApp/QRCodeDisplay';
-
-// Mocked QR code for demonstration
-const MOCK_QR_CODE = 'https://wa.me/1234567890';
+import { 
+  connectWhatsApp, 
+  getInstanceStatus, 
+  updateInstanceStatus, 
+  deleteWhatsappInstance,
+  getWhatsappInstances 
+} from '../lib/supabase';
+import { useUserStore } from '../stores/userStore';
 
 const Settings: React.FC = () => {
+  const { user } = useUserStore();
+  const [instanceId, setInstanceId] = useState<string | null>(null);
   const [instanceName, setInstanceName] = useState('Main Instance');
   const [instanceStatus, setInstanceStatus] = useState('DISCONNECTED');
   const [showQRCode, setShowQRCode] = useState(false);
+  const [qrCode, setQrCode] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleConnect = () => {
-    setShowQRCode(true);
+  useEffect(() => {
+    const fetchInstanceData = async () => {
+      if (!user) return;
+      
+      try {
+        const instances = await getWhatsappInstances(user.id);
+        if (instances && instances.length > 0) {
+          const instance = instances[0];
+          setInstanceId(instance.id);
+          setInstanceName(instance.name);
+          setInstanceStatus(instance.status);
+        }
+      } catch (error) {
+        console.error('Error fetching instance data:', error);
+        toast.error('Failed to load instance data');
+      }
+    };
+
+    fetchInstanceData();
+  }, [user]);
+
+  useEffect(() => {
+    if (!instanceId) return;
+
+    const pollStatus = async () => {
+      try {
+        const data = await getInstanceStatus(instanceId);
+        if (data) {
+          setInstanceStatus(data.status);
+        }
+      } catch (error) {
+        console.error('Error polling status:', error);
+      }
+    };
+
+    const intervalId = setInterval(pollStatus, 5000);
+
+    return () => clearInterval(intervalId);
+  }, [instanceId]);
+
+  const handleConnect = async () => {
+    if (!instanceId) {
+      toast.error('No instance found');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const data = await connectWhatsApp(instanceId);
+      if (data && data.qrCode) {
+        setQrCode(data.qrCode);
+        setShowQRCode(true);
+      } else {
+        toast.error('Failed to generate QR code');
+      }
+    } catch (error) {
+      console.error('Error connecting to WhatsApp:', error);
+      toast.error('Failed to connect to WhatsApp');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleDisconnect = () => {
-    toast.success('WhatsApp instance disconnected');
-    setInstanceStatus('DISCONNECTED');
+  const handleDisconnect = async () => {
+    if (!instanceId) return;
+
+    setIsLoading(true);
+    try {
+      await updateInstanceStatus(instanceId, 'DISCONNECTED');
+      setInstanceStatus('DISCONNECTED');
+      toast.success('WhatsApp instance disconnected');
+    } catch (error) {
+      console.error('Error disconnecting WhatsApp:', error);
+      toast.error('Failed to disconnect WhatsApp');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleSave = () => {
@@ -30,10 +109,21 @@ const Settings: React.FC = () => {
     }, 1000);
   };
 
-  const handleDeleteInstance = () => {
+  const handleDeleteInstance = async () => {
+    if (!instanceId) return;
+
     if (confirm('Are you sure you want to delete this instance? This action cannot be undone.')) {
-      toast.success('Instance deleted successfully');
-      // Navigate back to dashboard
+      setIsLoading(true);
+      try {
+        await deleteWhatsappInstance(instanceId);
+        toast.success('Instance deleted successfully');
+        // Navigate back to dashboard
+      } catch (error) {
+        console.error('Error deleting instance:', error);
+        toast.error('Failed to delete instance');
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -181,11 +271,10 @@ const Settings: React.FC = () => {
 
       {showQRCode && (
         <QRCodeDisplay 
-          qrCode={MOCK_QR_CODE} 
+          qrCode={qrCode} 
           onClose={() => {
             setShowQRCode(false);
-            setInstanceStatus('CONNECTED');
-            toast.success('WhatsApp connected successfully');
+            toast.success('QR code closed');
           }} 
         />
       )}

@@ -186,6 +186,47 @@ export const updateInstanceStatus = async (instanceId: string, status: string) =
   return data;
 };
 
+export const connectWhatsApp = async (instanceId: string) => {
+  try {
+    const response = await fetch(
+      `${supabaseUrl}/functions/v1/whatsapp-connect?id=${instanceId}`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseAnonKey}`
+        }
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to connect to WhatsApp');
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error connecting to WhatsApp:', error);
+    throw error;
+  }
+};
+
+// Get WhatsApp instance status
+export const getInstanceStatus = async (instanceId: string) => {
+  const { data, error } = await supabase
+    .from('whatsapp_instances')
+    .select('status, connection_data')
+    .eq('id', instanceId)
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
+};
+
 // Delete WhatsApp instance
 export const deleteWhatsappInstance = async (instanceId: string) => {
   const { error } = await supabase
