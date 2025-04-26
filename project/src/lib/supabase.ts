@@ -193,8 +193,8 @@ export const connectWhatsApp = async (instanceId: string) => {
       {
         method: 'GET',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${supabaseAnonKey}`
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${supabaseAnonKey}`
         }
       }
     );
