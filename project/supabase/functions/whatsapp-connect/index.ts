@@ -75,6 +75,14 @@ async function connectWhatsApp(instanceId: string, supabaseClient: any) {
     return new Promise((resolve) => {
       const qrListener = async (qr: string) => {
         if (qr) {
+          await supabaseClient
+            .from('whatsapp_instances')
+            .update({ 
+              status: 'CONNECTING',
+              connection_data: { qr_code: qr }
+            })
+            .eq('id', instanceId);
+            
           sock.ev.off('connection.update', qrListener);
           resolve(qr);
         }
