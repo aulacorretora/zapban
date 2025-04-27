@@ -7,6 +7,7 @@ import {
   connectWhatsApp, 
   getInstanceStatus, 
   updateInstanceStatus, 
+  updateInstanceName,
   deleteWhatsappInstance,
   getWhatsappInstances 
 } from '../lib/supabase';
@@ -118,12 +119,22 @@ const Settings: React.FC = () => {
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (!instanceId) {
+      toast.error('No instance found');
+      return;
+    }
+
     setIsSaving(true);
-    setTimeout(() => {
+    try {
+      await updateInstanceName(instanceId, instanceName);
+      toast.success('Instância salva com sucesso!');
+    } catch (error) {
+      console.error('Error saving instance:', error);
+      toast.error('Erro ao salvar instância. Tente novamente.');
+    } finally {
       setIsSaving(false);
-      toast.success('Settings saved successfully');
-    }, 1000);
+    }
   };
 
   const handleDeleteInstance = async () => {
@@ -190,6 +201,11 @@ const Settings: React.FC = () => {
             <p className="mt-1 text-sm text-gray-500">
               This name is used to identify your WhatsApp instance.
             </p>
+            {instanceId && (
+              <p className="mt-1 text-sm text-green-600">
+                Nome atual: {instanceName}
+              </p>
+            )}
           </div>
 
           <div>

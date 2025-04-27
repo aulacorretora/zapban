@@ -186,6 +186,22 @@ export const updateInstanceStatus = async (instanceId: string, status: string) =
   return data;
 };
 
+// Update WhatsApp instance name
+export const updateInstanceName = async (instanceId: string, name: string) => {
+  const { data, error } = await supabase
+    .from('whatsapp_instances')
+    .update({ name })
+    .eq('id', instanceId)
+    .select()
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
+};
+
 export const connectWhatsApp = async (instanceId: string) => {
   try {
     const response = await fetch(
