@@ -196,25 +196,48 @@ export const updateInstanceName = async (instanceId: string, name: string) => {
       throw new Error('User not authenticated');
     }
     
-    // Update instance with both name and user_id
+    const { data: existingInstance, error: checkError } = await supabase
+      .from('whatsapp_instances')
+      .select('*')
+      .eq('id', instanceId)
+      .single();
+    
+    if (checkError && checkError.code !== 'PGRST116') {
+      throw checkError;
+    }
+    
+    if (!existingInstance) {
+      const { data: newInstance, error: createError } = await supabase
+        .from('whatsapp_instances')
+        .insert([{
+          id: instanceId,
+          name,
+          user_id: userId,
+          status: 'DISCONNECTED'
+        }])
+        .select()
+        .single();
+      
+      if (createError) {
+        throw createError;
+      }
+      
+      return newInstance;
+    }
+    
+    // Update existing instance
     const { data, error } = await supabase
       .from('whatsapp_instances')
-      .update({ 
-        name,
-        user_id: userId 
-      })
+      .update({ name })
       .eq('id', instanceId)
-      .select();
+      .select()
+      .single();
     
     if (error) {
       throw error;
     }
     
-    if (!data || data.length === 0) {
-      throw new Error('Instance not found');
-    }
-    
-    return data[0];
+    return data;
   } catch (error) {
     console.error('Error updating instance name:', error);
     throw error;
