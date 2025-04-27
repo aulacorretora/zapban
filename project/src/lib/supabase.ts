@@ -188,18 +188,37 @@ export const updateInstanceStatus = async (instanceId: string, status: string) =
 
 // Update WhatsApp instance name
 export const updateInstanceName = async (instanceId: string, name: string) => {
-  const { data, error } = await supabase
-    .from('whatsapp_instances')
-    .update({ name })
-    .eq('id', instanceId)
-    .select()
-    .single();
-
-  if (error) {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    const userId = session?.user?.id;
+    
+    if (!userId) {
+      throw new Error('User not authenticated');
+    }
+    
+    // Update instance with both name and user_id
+    const { data, error } = await supabase
+      .from('whatsapp_instances')
+      .update({ 
+        name,
+        user_id: userId 
+      })
+      .eq('id', instanceId)
+      .select();
+    
+    if (error) {
+      throw error;
+    }
+    
+    if (!data || data.length === 0) {
+      throw new Error('Instance not found');
+    }
+    
+    return data[0];
+  } catch (error) {
+    console.error('Error updating instance name:', error);
     throw error;
   }
-
-  return data;
 };
 
 export const connectWhatsApp = async (instanceId: string) => {
