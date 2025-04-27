@@ -200,9 +200,9 @@ export const updateInstanceName = async (instanceId: string, name: string) => {
       .from('whatsapp_instances')
       .select('*')
       .eq('id', instanceId)
-      .single();
+      .maybeSingle();
     
-    if (checkError && checkError.code !== 'PGRST116') {
+    if (checkError) {
       throw checkError;
     }
     
@@ -213,31 +213,33 @@ export const updateInstanceName = async (instanceId: string, name: string) => {
           id: instanceId,
           name,
           user_id: userId,
-          status: 'DISCONNECTED'
+          status: 'DISCONNECTED',
+          connection_data: null
         }])
-        .select()
-        .single();
+        .select();
       
       if (createError) {
         throw createError;
       }
       
-      return newInstance;
+      return newInstance?.[0] || null;
     }
     
     // Update existing instance
     const { data, error } = await supabase
       .from('whatsapp_instances')
-      .update({ name })
+      .update({ 
+        name,
+        user_id: userId
+      })
       .eq('id', instanceId)
-      .select()
-      .single();
+      .select();
     
     if (error) {
       throw error;
     }
     
-    return data;
+    return data?.[0] || null;
   } catch (error) {
     console.error('Error updating instance name:', error);
     throw error;
