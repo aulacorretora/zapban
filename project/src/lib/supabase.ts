@@ -186,6 +186,66 @@ export const updateInstanceStatus = async (instanceId: string, status: string) =
   return data;
 };
 
+// Update WhatsApp instance name
+export const updateInstanceName = async (instanceId: string, name: string) => {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    const userId = session?.user?.id;
+    
+    if (!userId) {
+      throw new Error('User not authenticated');
+    }
+    
+    const { data: existingInstance, error: checkError } = await supabase
+      .from('whatsapp_instances')
+      .select('*')
+      .eq('id', instanceId)
+      .maybeSingle();
+    
+    if (checkError) {
+      throw checkError;
+    }
+    
+    if (!existingInstance) {
+      const { data: newInstance, error: createError } = await supabase
+        .from('whatsapp_instances')
+        .insert([{
+          id: instanceId,
+          name,
+          user_id: userId,
+          status: 'DISCONNECTED',
+          connection_data: null
+        }])
+        .select();
+      
+      if (createError) {
+        throw createError;
+      }
+      
+      return newInstance?.[0] || null;
+    }
+    
+    // Update existing instance
+    const { data, error } = await supabase
+      .from('whatsapp_instances')
+      .update({ 
+        name,
+        user_id: userId
+      })
+      .eq('id', instanceId)
+      .select();
+    
+    if (error) {
+      throw error;
+    }
+    
+    return data?.[0] || null;
+  } catch (error) {
+    console.error('Error updating instance name:', error);
+    throw error;
+  }
+};
+
 export const connectWhatsApp = async (instanceId: string) => {
   try {
     const response = await fetch(
