@@ -77,6 +77,11 @@ const Settings: React.FC = () => {
     setIsLoading(true);
     setInstanceStatus('CONNECTING');
     try {
+      if (instanceName.trim()) {
+        await updateInstanceName(instanceId, instanceName);
+        toast.success('Nome da instância salvo com sucesso!');
+      }
+
       const data = await connectWhatsApp(instanceId);
       if (data && data.qrCode) {
         setQrCode(data.qrCode);
@@ -135,6 +140,7 @@ const Settings: React.FC = () => {
     try {
       await updateInstanceName(instanceId, instanceName);
       toast.success('Nome da instância atualizado com sucesso!');
+      setInstanceName('');
     } catch (error) {
       console.error('Error updating instance name:', error);
       toast.error('Falha ao atualizar o nome da instância');
@@ -149,8 +155,11 @@ const Settings: React.FC = () => {
     if (confirm('Are you sure you want to delete this instance? This action cannot be undone.')) {
       setIsLoading(true);
       try {
-        if (instanceStatus === 'CONNECTED') {
+        try {
           await disconnectInstance(instanceId);
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        } catch (disconnectError) {
+          console.error('Error disconnecting instance:', disconnectError);
         }
         
         await deleteWhatsappInstance(instanceId);
@@ -158,6 +167,7 @@ const Settings: React.FC = () => {
         setInstanceId(null);
         setInstanceName('');
         setInstanceStatus('DISCONNECTED');
+        setShowQRCode(false);
         
         toast.success('Instance deleted successfully');
       } catch (error) {
