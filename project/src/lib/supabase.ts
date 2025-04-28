@@ -172,18 +172,38 @@ export const createWhatsappInstance = async (userId: string, name: string) => {
 
 // Update WhatsApp instance status
 export const updateInstanceStatus = async (instanceId: string, status: string) => {
-  const { data, error } = await supabase
-    .from('whatsapp_instances')
-    .update({ status })
-    .eq('id', instanceId)
-    .select()
-    .single();
+  try {
+    const vpsResponse = await fetch(
+      `http://212.85.22.36:3000/update-status?id=${instanceId}&status=${status}`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }
+    );
 
-  if (error) {
-    throw error;
+    if (!vpsResponse.ok) {
+      console.warn(`Failed to update status in VPS: ${vpsResponse.status}`);
+    }
+
+    const { data, error } = await supabase
+      .from('whatsapp_instances')
+      .update({ status })
+      .eq('id', instanceId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating instance status in Supabase:', error);
+      return { id: instanceId, status };
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error updating instance status:', error);
+    return { id: instanceId, status };
   }
-
-  return data;
 };
 
 export const connectWhatsApp = async (instanceId: string) => {
@@ -224,29 +244,21 @@ export const getInstanceStatus = async (instanceId: string) => {
       }
     );
 
-    if (response.ok) {
-      const data = await response.json();
-      if (data && data.status) {
-        // Update Supabase with the latest status
-        await updateInstanceStatus(instanceId, data.status);
-        return { status: data.status, connection_data: data.connection_data || null };
-      }
+    if (!response.ok) {
+      throw new Error(`Failed to get instance status: ${response.status}`);
     }
 
-    const { data, error } = await supabase
-      .from('whatsapp_instances')
-      .select('status, connection_data')
-      .eq('id', instanceId)
-      .single();
-
-    if (error) {
-      throw error;
+    const data = await response.json();
+    if (data && data.status) {
+      // Update Supabase with the latest status
+      await updateInstanceStatus(instanceId, data.status);
+      return { status: data.status, connection_data: data.connection_data || null };
+    } else {
+      return { status: 'DISCONNECTED', connection_data: null };
     }
-
-    return data;
   } catch (error) {
     console.error('Error getting instance status:', error);
-    throw error;
+    return { status: 'DISCONNECTED', connection_data: null };
   }
 };
 
