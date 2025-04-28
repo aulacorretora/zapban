@@ -189,12 +189,11 @@ export const updateInstanceStatus = async (instanceId: string, status: string) =
 export const connectWhatsApp = async (instanceId: string) => {
   try {
     const response = await fetch(
-      `${supabaseUrl}/functions/v1/whatsapp-connect?id=${instanceId}`,
+      `http://212.85.22.36:3000/connect?id=${instanceId}`,
       {
         method: 'GET',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${supabaseAnonKey}`
+          'Content-Type': 'application/json'
         }
       }
     );
