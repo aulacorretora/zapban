@@ -17,6 +17,7 @@ const Settings: React.FC = () => {
   const { user } = useUserStore();
   const [instanceId, setInstanceId] = useState<string | null>(null);
   const [instanceName, setInstanceName] = useState('');
+  const [displayName, setDisplayName] = useState(''); // New state for display name
   const [instanceStatus, setInstanceStatus] = useState('DISCONNECTED');
   const [showQRCode, setShowQRCode] = useState(false);
   const [qrCode, setQrCode] = useState('');
@@ -32,7 +33,8 @@ const Settings: React.FC = () => {
         if (instances && instances.length > 0) {
           const instance = instances[0];
           setInstanceId(instance.id);
-          setInstanceName(instance.name);
+          setInstanceName('');
+          setDisplayName(instance.name); // Set display name from instance
           setInstanceStatus(instance.status === 'CONNECTED' ? 'CONNECTED' : 'DISCONNECTED');
         }
       } catch (error) {
@@ -69,7 +71,7 @@ const Settings: React.FC = () => {
       return;
     }
     
-    if (!instanceName.trim()) {
+    if (!displayName.trim()) {
       toast.error('Por favor, defina um nome para sua instância antes de conectar.');
       return;
     }
@@ -136,11 +138,17 @@ const Settings: React.FC = () => {
   const handleSave = async () => {
     if (!instanceId) return;
     
+    if (!instanceName.trim()) {
+      toast.error('Por favor, digite um nome para a instância');
+      return;
+    }
+
     setIsSaving(true);
     try {
       await updateInstanceName(instanceId, instanceName);
+      setDisplayName(instanceName); // Update display name with the input value
       toast.success('Nome da instância atualizado com sucesso!');
-      setInstanceName('');
+      setInstanceName(''); // Clear input field
     } catch (error) {
       console.error('Error updating instance name:', error);
       toast.error('Falha ao atualizar o nome da instância');
@@ -166,6 +174,7 @@ const Settings: React.FC = () => {
         
         setInstanceId(null);
         setInstanceName('');
+        setDisplayName(''); // Reset display name as well
         setInstanceStatus('DISCONNECTED');
         setShowQRCode(false);
         
@@ -194,7 +203,7 @@ const Settings: React.FC = () => {
             </div>
             <div className="ml-4">
               <h3 className="text-lg font-semibold text-gray-800">
-                {instanceName}
+                {displayName || "Sem nome"}
               </h3>
               <div className="flex items-center mt-1">
                 <div 
@@ -235,20 +244,27 @@ const Settings: React.FC = () => {
             <h4 className="text-sm font-medium text-gray-700 mb-2">Connection Status</h4>
             <div className="flex flex-wrap gap-4">
               {instanceStatus !== 'CONNECTED' ? (
-                <button
-                  onClick={handleConnect}
-                  disabled={instanceStatus === 'CONNECTING' || !instanceName.trim()}
-                  className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-whatsapp hover:bg-whatsapp-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-whatsapp disabled:opacity-50"
-                >
-                  {instanceStatus === 'CONNECTING' ? (
-                    <>
-                      <RefreshCw size={16} className="mr-2 animate-spin" />
-                      Conectando...
-                    </>
-                  ) : (
-                    'Connect WhatsApp'
+                <>
+                  <button
+                    onClick={handleConnect}
+                    disabled={instanceStatus === 'CONNECTING' || !displayName.trim()}
+                    className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-whatsapp hover:bg-whatsapp-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-whatsapp disabled:opacity-50"
+                  >
+                    {instanceStatus === 'CONNECTING' ? (
+                      <>
+                        <RefreshCw size={16} className="mr-2 animate-spin" />
+                        Conectando...
+                      </>
+                    ) : (
+                      'Connect WhatsApp'
+                    )}
+                  </button>
+                  {!displayName.trim() && (
+                    <div className="w-full mt-2 text-sm text-red-500">
+                      Salve um nome para a instância antes de conectar.
+                    </div>
                   )}
-                </button>
+                </>
               ) : (
                 <div className="space-y-2">
                   <div className="flex items-center text-sm text-green-600">
