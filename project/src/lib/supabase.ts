@@ -174,7 +174,7 @@ export const createWhatsappInstance = async (userId: string, name: string) => {
 export const updateInstanceStatus = async (instanceId: string, status: string) => {
   try {
     const vpsResponse = await fetch(
-      `http://212.85.22.36:3000/update-status?id=${instanceId}&status=${status}`,
+      `/api/whatsapp/update-status?id=${instanceId}&status=${status}`,
       {
         method: 'GET',
         headers: {
@@ -209,7 +209,7 @@ export const updateInstanceStatus = async (instanceId: string, status: string) =
 export const connectWhatsApp = async (instanceId: string) => {
   try {
     const response = await fetch(
-      `http://212.85.22.36:3000/connect?id=${instanceId}`,
+      `/api/whatsapp/connect?id=${instanceId}`,
       {
         method: 'GET',
         headers: {
@@ -235,7 +235,7 @@ export const connectWhatsApp = async (instanceId: string) => {
 export const getInstanceStatus = async (instanceId: string) => {
   try {
     const response = await fetch(
-      `http://212.85.22.36:3000/status?id=${instanceId}`,
+      `/api/whatsapp/status?id=${instanceId}`,
       {
         method: 'GET',
         headers: {
