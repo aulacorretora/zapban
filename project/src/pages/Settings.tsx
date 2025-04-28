@@ -34,7 +34,7 @@ const Settings: React.FC = () => {
           const instance = instances[0];
           setInstanceId(instance.id);
           setInstanceName('');
-          setDisplayName(instance.name); // Set display name from instance
+          setDisplayName(instance.name || ''); // Garantir que nome não seja null/undefined
           setInstanceStatus(instance.status === 'CONNECTED' ? 'CONNECTED' : 'DISCONNECTED');
         }
       } catch (error) {
@@ -81,7 +81,9 @@ const Settings: React.FC = () => {
     try {
       if (instanceName.trim()) {
         await updateInstanceName(instanceId, instanceName);
+        setDisplayName(instanceName); // Atualizar displayName imediatamente
         toast.success('Nome da instância salvo com sucesso!');
+        setInstanceName(''); // Limpar o campo de input após salvar
       }
 
       const data = await connectWhatsApp(instanceId);
@@ -203,7 +205,10 @@ const Settings: React.FC = () => {
             </div>
             <div className="ml-4">
               <h3 className="text-lg font-semibold text-gray-800">
-                {displayName || "Sem nome"}
+                {displayName ? 
+                  <span className="text-whatsapp font-bold">{displayName}</span> : 
+                  <span className="text-gray-400 italic">Sem nome</span>
+                }
               </h3>
               <div className="flex items-center mt-1">
                 <div 
@@ -226,17 +231,18 @@ const Settings: React.FC = () => {
         <div className="p-6 space-y-6">
           <div>
             <label htmlFor="instanceName" className="block text-sm font-medium text-gray-700 mb-1">
-              Instance Name
+              Nome da Instância <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
               id="instanceName"
               value={instanceName}
               onChange={(e) => setInstanceName(e.target.value)}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-whatsapp focus:ring focus:ring-whatsapp focus:ring-opacity-50"
+              placeholder="Digite o nome da instância aqui..."
+              className="mt-1 block w-full rounded-md border-2 border-gray-300 px-3 py-2 bg-gray-50 shadow-sm focus:border-whatsapp focus:ring focus:ring-whatsapp focus:ring-opacity-50 text-gray-800 text-base"
             />
             <p className="mt-1 text-sm text-gray-500">
-              This name is used to identify your WhatsApp instance.
+              Este nome é usado para identificar sua instância do WhatsApp. Salve o nome antes de conectar.
             </p>
           </div>
 
@@ -248,7 +254,7 @@ const Settings: React.FC = () => {
                   <button
                     onClick={handleConnect}
                     disabled={instanceStatus === 'CONNECTING' || !displayName.trim()}
-                    className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-whatsapp hover:bg-whatsapp-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-whatsapp disabled:opacity-50"
+                    className={`inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${displayName.trim() ? 'bg-whatsapp hover:bg-whatsapp-dark transform hover:scale-105 shadow-lg' : 'bg-gray-400'} focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-whatsapp disabled:opacity-50 transition-all duration-200`}
                   >
                     {instanceStatus === 'CONNECTING' ? (
                       <>
@@ -260,8 +266,9 @@ const Settings: React.FC = () => {
                     )}
                   </button>
                   {!displayName.trim() && (
-                    <div className="w-full mt-2 text-sm text-red-500">
-                      Salve um nome para a instância antes de conectar.
+                    <div className="w-full mt-2 text-sm bg-red-50 border border-red-200 rounded p-2 flex items-center text-red-600">
+                      <AlertCircle size={16} className="mr-2 flex-shrink-0" />
+                      <span>Salve um nome para a instância antes de conectar.</span>
                     </div>
                   )}
                 </>
@@ -331,7 +338,7 @@ const Settings: React.FC = () => {
           <button
             onClick={handleSave}
             disabled={isSaving}
-            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-whatsapp hover:bg-whatsapp-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-whatsapp disabled:opacity-50"
+            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-semibold text-white bg-whatsapp hover:bg-whatsapp-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-whatsapp disabled:opacity-50 transition-all duration-200 transform hover:scale-105 hover:shadow-lg"
           >
             {isSaving ? (
               <>
