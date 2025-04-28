@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { QRCodeSVG } from 'qrcode.react';
 import { motion } from 'framer-motion';
 import { X } from 'lucide-react';
 
@@ -57,13 +56,12 @@ const QRCodeDisplay: React.FC<QRCodeDisplayProps> = ({
           {showQR ? (
             <>
               <div className="bg-white p-3 rounded-lg relative">
-                <QRCodeSVG
-                  value={qrCode}
-                  size={220}
-                  bgColor={"#ffffff"}
-                  fgColor={"#000000"}
-                  level={"L"}
-                  includeMargin={false}
+                <img 
+                  src={`data:image/png;base64,${qrCode}`}
+                  alt="WhatsApp QR Code"
+                  width={220}
+                  height={220}
+                  className="mx-auto"
                 />
               </div>
               

@@ -69,6 +69,7 @@ const Settings: React.FC = () => {
     }
 
     setIsLoading(true);
+    setInstanceStatus('CONNECTING');
     try {
       const data = await connectWhatsApp(instanceId);
       if (data && data.qrCode) {
@@ -88,14 +89,17 @@ const Settings: React.FC = () => {
         setTimeout(() => {
           clearInterval(checkStatusInterval);
           if (instanceStatus !== 'CONNECTED') {
+            setInstanceStatus('DISCONNECTED');
             toast.error('QR code expired. Please try again.');
           }
         }, 60000);
       } else {
+        setInstanceStatus('DISCONNECTED');
         toast.error('Failed to generate QR code');
       }
     } catch (error) {
       console.error('Error connecting to WhatsApp:', error);
+      setInstanceStatus('DISCONNECTED');
       toast.error('Failed to connect to WhatsApp');
     } finally {
       setIsLoading(false);
