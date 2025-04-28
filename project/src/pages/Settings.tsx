@@ -16,7 +16,7 @@ import { useUserStore } from '../stores/userStore';
 const Settings: React.FC = () => {
   const { user } = useUserStore();
   const [instanceId, setInstanceId] = useState<string | null>(null);
-  const [instanceName, setInstanceName] = useState('Main Instance');
+  const [instanceName, setInstanceName] = useState('');
   const [instanceStatus, setInstanceStatus] = useState('DISCONNECTED');
   const [showQRCode, setShowQRCode] = useState(false);
   const [qrCode, setQrCode] = useState('');
@@ -66,6 +66,11 @@ const Settings: React.FC = () => {
   const handleConnect = async () => {
     if (!instanceId) {
       toast.error('No instance found');
+      return;
+    }
+    
+    if (!instanceName.trim()) {
+      toast.error('Por favor, defina um nome para sua instância antes de conectar.');
       return;
     }
 
@@ -129,10 +134,10 @@ const Settings: React.FC = () => {
     setIsSaving(true);
     try {
       await updateInstanceName(instanceId, instanceName);
-      toast.success('Instance name updated successfully');
+      toast.success('Nome da instância atualizado com sucesso!');
     } catch (error) {
       console.error('Error updating instance name:', error);
-      toast.error('Failed to update instance name');
+      toast.error('Falha ao atualizar o nome da instância');
     } finally {
       setIsSaving(false);
     }
@@ -144,9 +149,17 @@ const Settings: React.FC = () => {
     if (confirm('Are you sure you want to delete this instance? This action cannot be undone.')) {
       setIsLoading(true);
       try {
+        if (instanceStatus === 'CONNECTED') {
+          await disconnectInstance(instanceId);
+        }
+        
         await deleteWhatsappInstance(instanceId);
+        
+        setInstanceId(null);
+        setInstanceName('');
+        setInstanceStatus('DISCONNECTED');
+        
         toast.success('Instance deleted successfully');
-        // Navigate back to dashboard
       } catch (error) {
         console.error('Error deleting instance:', error);
         toast.error('Failed to delete instance');
@@ -214,7 +227,7 @@ const Settings: React.FC = () => {
               {instanceStatus !== 'CONNECTED' ? (
                 <button
                   onClick={handleConnect}
-                  disabled={instanceStatus === 'CONNECTING'}
+                  disabled={instanceStatus === 'CONNECTING' || !instanceName.trim()}
                   className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-whatsapp hover:bg-whatsapp-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-whatsapp disabled:opacity-50"
                 >
                   {instanceStatus === 'CONNECTING' ? (
