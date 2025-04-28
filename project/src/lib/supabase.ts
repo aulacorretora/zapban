@@ -173,18 +173,22 @@ export const createWhatsappInstance = async (userId: string, name: string) => {
 // Update WhatsApp instance status
 export const updateInstanceStatus = async (instanceId: string, status: string) => {
   try {
-    const vpsResponse = await fetch(
-      `/api/whatsapp/update-status?id=${instanceId}&status=${status}`,
-      {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json'
+    try {
+      const vpsResponse = await fetch(
+        `/api/whatsapp/update-status?id=${instanceId}&status=${status}`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json'
+          }
         }
-      }
-    );
+      );
 
-    if (!vpsResponse.ok) {
-      console.warn(`Failed to update status in VPS: ${vpsResponse.status}`);
+      if (!vpsResponse.ok) {
+        console.warn(`VPS API update-status endpoint not available: ${vpsResponse.status}`);
+      }
+    } catch (apiError) {
+      console.warn('VPS API update-status endpoint not available, updating only in Supabase:', apiError);
     }
 
     const { data, error } = await supabase
@@ -234,28 +238,42 @@ export const connectWhatsApp = async (instanceId: string) => {
 // Get WhatsApp instance status
 export const getInstanceStatus = async (instanceId: string) => {
   try {
-    const response = await fetch(
-      `/api/whatsapp/status?id=${instanceId}`,
-      {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json'
+    try {
+      const response = await fetch(
+        `/api/whatsapp/status?id=${instanceId}`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data && data.status) {
+          // Update Supabase with the latest status
+          await updateInstanceStatus(instanceId, data.status);
+          return { status: data.status, connection_data: data.connection_data || null };
         }
       }
-    );
-
-    if (!response.ok) {
-      throw new Error(`Failed to get instance status: ${response.status}`);
+    } catch (apiError) {
+      console.warn('VPS API status endpoint not available, falling back to Supabase:', apiError);
     }
 
-    const data = await response.json();
-    if (data && data.status) {
-      // Update Supabase with the latest status
-      await updateInstanceStatus(instanceId, data.status);
-      return { status: data.status, connection_data: data.connection_data || null };
-    } else {
+    // Fallback to Supabase if VPS API fails or doesn't exist
+    const { data, error } = await supabase
+      .from('whatsapp_instances')
+      .select('status, connection_data')
+      .eq('id', instanceId)
+      .single();
+
+    if (error) {
+      console.error('Error getting instance status from Supabase:', error);
       return { status: 'DISCONNECTED', connection_data: null };
     }
+
+    return data;
   } catch (error) {
     console.error('Error getting instance status:', error);
     return { status: 'DISCONNECTED', connection_data: null };
