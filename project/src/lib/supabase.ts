@@ -280,14 +280,57 @@ export const getInstanceStatus = async (instanceId: string) => {
   }
 };
 
+// Update WhatsApp instance name
+export const updateInstanceName = async (instanceId: string, name: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('whatsapp_instances')
+      .update({ name })
+      .eq('id', instanceId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating instance name:', error);
+      throw error;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error updating instance name:', error);
+    throw error;
+  }
+};
+
+// Disconnect WhatsApp instance
+export const disconnectInstance = async (instanceId: string) => {
+  try {
+    return await updateInstanceStatus(instanceId, 'DISCONNECTED');
+  } catch (error) {
+    console.error('Error disconnecting instance:', error);
+    throw error;
+  }
+};
+
 // Delete WhatsApp instance
 export const deleteWhatsappInstance = async (instanceId: string) => {
-  const { error } = await supabase
-    .from('whatsapp_instances')
-    .delete()
-    .eq('id', instanceId);
+  try {
+    const { status } = await getInstanceStatus(instanceId);
+    
+    if (status === 'CONNECTED') {
+      await disconnectInstance(instanceId);
+    }
+    
+    const { error } = await supabase
+      .from('whatsapp_instances')
+      .delete()
+      .eq('id', instanceId);
 
-  if (error) {
+    if (error) {
+      throw error;
+    }
+  } catch (error) {
+    console.error('Error deleting WhatsApp instance:', error);
     throw error;
   }
 };
