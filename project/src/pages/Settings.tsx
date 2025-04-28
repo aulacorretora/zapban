@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Phone, RefreshCw, Save, Trash2 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { Phone, RefreshCw, Save, Trash2, AlertCircle } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import QRCodeDisplay from '../components/WhatsApp/QRCodeDisplay';
 import { 
@@ -8,7 +7,9 @@ import {
   getInstanceStatus, 
   updateInstanceStatus, 
   deleteWhatsappInstance,
-  getWhatsappInstances 
+  getWhatsappInstances,
+  updateInstanceName,
+  disconnectInstance
 } from '../lib/supabase';
 import { useUserStore } from '../stores/userStore';
 
@@ -122,12 +123,19 @@ const Settings: React.FC = () => {
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (!instanceId) return;
+    
     setIsSaving(true);
-    setTimeout(() => {
+    try {
+      await updateInstanceName(instanceId, instanceName);
+      toast.success('Instance name updated successfully');
+    } catch (error) {
+      console.error('Error updating instance name:', error);
+      toast.error('Failed to update instance name');
+    } finally {
       setIsSaving(false);
-      toast.success('Settings saved successfully');
-    }, 1000);
+    }
   };
 
   const handleDeleteInstance = async () => {
@@ -173,7 +181,11 @@ const Settings: React.FC = () => {
                     'bg-red-500'
                   }`}
                 ></div>
-                <span className="text-sm text-gray-600">{instanceStatus}</span>
+                <span className="text-sm text-gray-600">
+                  {instanceStatus === 'CONNECTED' ? 'Conectado' : 
+                   instanceStatus === 'CONNECTING' ? 'Conectando...' : 
+                   'Desconectado'}
+                </span>
               </div>
             </div>
           </div>
@@ -202,24 +214,31 @@ const Settings: React.FC = () => {
               {instanceStatus !== 'CONNECTED' ? (
                 <button
                   onClick={handleConnect}
-                  className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-whatsapp hover:bg-whatsapp-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-whatsapp"
+                  disabled={instanceStatus === 'CONNECTING'}
+                  className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-whatsapp hover:bg-whatsapp-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-whatsapp disabled:opacity-50"
                 >
                   {instanceStatus === 'CONNECTING' ? (
                     <>
                       <RefreshCw size={16} className="mr-2 animate-spin" />
-                      Connecting...
+                      Conectando...
                     </>
                   ) : (
                     'Connect WhatsApp'
                   )}
                 </button>
               ) : (
-                <button
-                  onClick={handleDisconnect}
-                  className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-whatsapp"
-                >
-                  Disconnect
-                </button>
+                <div className="space-y-2">
+                  <div className="flex items-center text-sm text-green-600">
+                    <AlertCircle size={16} className="mr-2" />
+                    WhatsApp já está conectado
+                  </div>
+                  <button
+                    onClick={handleDisconnect}
+                    className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-whatsapp"
+                  >
+                    Desconectar
+                  </button>
+                </div>
               )}
             </div>
           </div>
