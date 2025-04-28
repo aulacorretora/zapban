@@ -32,7 +32,7 @@ const Settings: React.FC = () => {
           const instance = instances[0];
           setInstanceId(instance.id);
           setInstanceName(instance.name);
-          setInstanceStatus(instance.status);
+          setInstanceStatus(instance.status === 'CONNECTED' ? 'CONNECTED' : 'DISCONNECTED');
         }
       } catch (error) {
         console.error('Error fetching instance data:', error);
