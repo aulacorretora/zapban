@@ -189,12 +189,11 @@ export const updateInstanceStatus = async (instanceId: string, status: string) =
 export const connectWhatsApp = async (instanceId: string) => {
   try {
     const response = await fetch(
-      `${supabaseUrl}/functions/v1/whatsapp-connect?id=${instanceId}`,
+      `http://212.85.22.36:3000/connect?id=${instanceId}`,
       {
         method: 'GET',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${supabaseAnonKey}`
+          'Content-Type': 'application/json'
         }
       }
     );
@@ -214,17 +213,41 @@ export const connectWhatsApp = async (instanceId: string) => {
 
 // Get WhatsApp instance status
 export const getInstanceStatus = async (instanceId: string) => {
-  const { data, error } = await supabase
-    .from('whatsapp_instances')
-    .select('status, connection_data')
-    .eq('id', instanceId)
-    .single();
+  try {
+    const response = await fetch(
+      `http://212.85.22.36:3000/status?id=${instanceId}`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }
+    );
 
-  if (error) {
+    if (response.ok) {
+      const data = await response.json();
+      if (data && data.status) {
+        // Update Supabase with the latest status
+        await updateInstanceStatus(instanceId, data.status);
+        return { status: data.status, connection_data: data.connection_data || null };
+      }
+    }
+
+    const { data, error } = await supabase
+      .from('whatsapp_instances')
+      .select('status, connection_data')
+      .eq('id', instanceId)
+      .single();
+
+    if (error) {
+      throw error;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error getting instance status:', error);
     throw error;
   }
-
-  return data;
 };
 
 // Delete WhatsApp instance
