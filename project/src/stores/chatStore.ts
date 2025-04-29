@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { supabase } from '../lib/supabase';
+import * as supabase from '../lib/supabase';
 import { Contact, Conversation, Message, MessageStatus, MessageType } from '../components/Chat/types';
 
 type Messages = Record<string, Message[]>;
@@ -8,12 +8,13 @@ interface ChatState {
   conversations: Conversation[];
   messages: Messages;
   loading: boolean;
+  conversationsLoading: boolean;
   error: string | null;
   selectedConversationId: string | null;
   
-  loadConversations: () => Promise<Conversation[]>;
+  loadConversations: (instanceId?: string) => Promise<Conversation[]>;
   selectConversation: (id: string) => void;
-  loadMessages: (conversationId: string) => Promise<Message[]>;
+  loadMessages: (conversationId: string, instanceId?: string) => Promise<Message[]>;
   sendMessage: (conversationId: string, content: string, mediaType?: MessageType, mediaUrl?: string) => Promise<Message | null>;
   markMessagesAsRead: (conversationId: string) => Promise<void>;
 }
@@ -22,13 +23,25 @@ export const useChatStore = create<ChatState>((set, get) => ({
   conversations: [],
   messages: {},
   loading: false,
+  conversationsLoading: false,
   error: null,
   selectedConversationId: null,
   
-  loadConversations: async () => {
-    set({ loading: true, error: null });
+  loadConversations: async (instanceId?: string) => {
+    if (!instanceId) {
+      set({ error: "Nenhuma instância do WhatsApp conectada" });
+      return [];
+    }
+    
+    set({ conversationsLoading: true, error: null });
     
     try {
+      const conversations = await supabase.getWhatsAppConversations(instanceId);
+      set({ conversations, conversationsLoading: false });
+      return conversations;
+    } catch (error) {
+      console.error('Erro ao carregar conversas:', error);
+      
       const demoContacts: Contact[] = [
         {
           id: '1',
@@ -79,12 +92,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
         }
       ];
       
-      set({ conversations: demoConversations, loading: false });
+      set({ 
+        error: "Falha ao carregar conversas", 
+        conversationsLoading: false,
+        conversations: demoConversations 
+      });
       return demoConversations;
-    } catch (error) {
-      console.error('Erro ao carregar conversas:', error);
-      set({ error: 'Falha ao carregar conversas', loading: false });
-      return [];
     }
   },
   
@@ -93,15 +106,42 @@ export const useChatStore = create<ChatState>((set, get) => ({
     get().loadMessages(id);
   },
   
-  loadMessages: async (conversationId: string) => {
-    set({ loading: true, error: null });
+  loadMessages: async (conversationId: string, instanceId?: string) => {
+    if (!conversationId) return [];
+    
+    set(state => ({ 
+      loading: true, 
+      error: null,
+      messages: {
+        ...state.messages,
+        [conversationId]: state.messages[conversationId] || []
+      }
+    }));
     
     try {
       const cachedMessages = get().messages[conversationId];
       
-      if (cachedMessages) {
+      if (cachedMessages && cachedMessages.length > 0) {
         set({ loading: false });
         return cachedMessages;
+      }
+      
+      if (instanceId) {
+        try {
+          const messages = await supabase.getWhatsAppMessages(instanceId, conversationId);
+          
+          set(state => ({
+            messages: {
+              ...state.messages,
+              [conversationId]: messages || []
+            },
+            loading: false
+          }));
+          
+          return messages || [];
+        } catch (msgError) {
+          console.error('Erro ao carregar mensagens reais:', msgError);
+        }
       }
       
       const demoMessages: Message[] = [

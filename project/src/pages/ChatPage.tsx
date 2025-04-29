@@ -11,10 +11,10 @@ import { Conversation } from '../components/Chat/types';
 const ChatPage: React.FC = () => {
   const { user } = useUserStore();
   const navigate = useNavigate();
-  const { initialize, settings } = useAgentStore();
+  const { initialize, settings, instanceId } = useAgentStore();
   const { 
     conversations, 
-    loading, 
+    conversationsLoading, 
     error, 
     loadConversations, 
     selectedConversationId, 
@@ -24,24 +24,14 @@ const ChatPage: React.FC = () => {
   useEffect(() => {
     if (!user) return;
     
-    const loadData = async () => {
-      try {
-        await loadConversations();
-        
-        try {
-          const instanceId = 'instance-1';
-          await initialize(instanceId);
-        } catch (error) {
-          console.error('Erro ao inicializar agente:', error);
-        }
-      } catch (error) {
-        console.error('Erro ao carregar dados:', error);
-        toast.error('Falha ao carregar dados');
-      }
-    };
-    
-    loadData();
-  }, [user, loadConversations, initialize]);
+    initialize(user.id);
+  }, [user, initialize]);
+  
+  useEffect(() => {
+    if (instanceId) {
+      loadConversations(instanceId);
+    }
+  }, [instanceId, loadConversations]);
   
   useEffect(() => {
     if (conversations.length > 0 && !selectedConversationId) {
@@ -69,7 +59,7 @@ const ChatPage: React.FC = () => {
     );
   }
   
-  if (loading) {
+  if (conversationsLoading) {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-center">
