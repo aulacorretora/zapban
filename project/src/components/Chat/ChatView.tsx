@@ -5,7 +5,7 @@ import { ArrowLeft, Phone, MoreVertical, Bot } from 'lucide-react';
 import ContactAvatar from './ContactAvatar';
 import MessageList from './MessageList';
 import MessageInput from './MessageInput';
-import { Message, MessageStatus } from './types';
+import { Message, MessageStatus, MessageType, Conversation } from './types';
 
 interface ChatViewProps {
   conversationId: string;
@@ -24,7 +24,7 @@ const ChatView: React.FC<ChatViewProps> = ({
   const { 
     conversations, 
     messages, 
-    messagesLoading, 
+    loading: messagesLoading, 
     loadMessages, 
     sendMessage,
     markMessagesAsRead
@@ -40,7 +40,7 @@ const ChatView: React.FC<ChatViewProps> = ({
   const [suggestedResponse, setSuggestedResponse] = useState<string | null>(null);
   const [suggestedActionButtons, setSuggestedActionButtons] = useState<{ text: string; action: string }[]>([]);
   
-  const conversation = conversations.find((c: any) => c.id === conversationId);
+  const conversation = conversations.find((c: Conversation) => c.id === conversationId);
   const conversationMessages = messages[conversationId] || [];
   
   useEffect(() => {
@@ -67,39 +67,49 @@ const ChatView: React.FC<ChatViewProps> = ({
         return;
       }
       
-      const result = await processMessage(lastMessage.content, conversationId);
-      
-      if (result.response) {
-        if (settings.mode === 'ACTIVE') {
-          const aiMessage: Message = {
-            id: `ai-${Date.now()}`,
-            conversationId,
-            content: result.response,
-            timestamp: new Date().toISOString(),
-            isFromMe: true,
-            status: MessageStatus.SENT,
-            isAIResponse: true,
-            actionButtons: result.actionButtons
-          };
-          
-          useChatStore.setState((state: any) => ({
-            messages: {
-              ...state.messages,
-              [conversationId]: [...conversationMessages, aiMessage]
+      try {
+        const result = await processMessage(lastMessage.content, conversationId);
+        
+        if (result?.response) {
+          if (settings.mode === 'ACTIVE') {
+            const aiMessage: Message = {
+              id: `ai-${Date.now()}`,
+              conversationId,
+              content: result.response,
+              timestamp: new Date().toISOString(),
+              isFromMe: true,
+              status: MessageStatus.SENT,
+              type: MessageType.TEXT,
+              isAIResponse: true,
+              actionButtons: result.actionButtons
+            };
+            
+            useChatStore.setState((state: any) => ({
+              messages: {
+                ...state.messages,
+                [conversationId]: [...conversationMessages, aiMessage]
+              }
+            }));
+            
+            sendMessage(conversationId, result.response);
+          } else {
+            // Modo passivo: mostrar sugestão
+            setSuggestedResponse(result.response);
+            setSuggestedActionButtons(result.actionButtons || []);
+          }
+        } else if (settings.mode === 'PASSIVE') {
+          try {
+            const response = await generateResponse(lastMessage.content, conversationId);
+            if (response) {
+              setSuggestedResponse(response);
+              setSuggestedActionButtons([]);
             }
-          }));
-          
-          sendMessage(conversationId, result.response);
-        } else {
-          setSuggestedResponse(result.response);
-          setSuggestedActionButtons(result.actionButtons || []);
+          } catch (error) {
+            console.error('Erro ao gerar resposta:', error);
+          }
         }
-      } else if (settings.mode === 'PASSIVE') {
-        const response = await generateResponse(lastMessage.content, conversationId);
-        if (response) {
-          setSuggestedResponse(response);
-          setSuggestedActionButtons([]);
-        }
+      } catch (error) {
+        console.error('Erro ao processar mensagem:', error);
       }
     };
     

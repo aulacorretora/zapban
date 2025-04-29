@@ -99,8 +99,8 @@ const MessageInput: React.FC<MessageInputProps> = ({ onSendMessage, disabled = f
   };
   
   return (
-    <div className="p-3 border-t border-gray-200 bg-white">
-      <div className="flex items-end space-x-2">
+    <div className="p-3 pb-4 md:pb-5 lg:pb-6 border-t border-gray-200 bg-white shadow-sm">
+      <div className="flex items-end space-x-2 mb-1 md:mb-2">
         <div className="flex-1 bg-gray-100 rounded-lg p-2">
           <textarea
             value={message}
