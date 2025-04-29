@@ -40,7 +40,7 @@ const ChatView: React.FC<ChatViewProps> = ({
   const [suggestedResponse, setSuggestedResponse] = useState<string | null>(null);
   const [suggestedActionButtons, setSuggestedActionButtons] = useState<{ text: string; action: string }[]>([]);
   
-  const conversation = conversations.find(c => c.id === conversationId);
+  const conversation = conversations.find((c: any) => c.id === conversationId);
   const conversationMessages = messages[conversationId] || [];
   
   useEffect(() => {
@@ -67,7 +67,7 @@ const ChatView: React.FC<ChatViewProps> = ({
         return;
       }
       
-      const result = await processMessage(lastMessage.content);
+      const result = await processMessage(lastMessage.content, conversationId);
       
       if (result.response) {
         if (settings.mode === 'ACTIVE') {
@@ -82,7 +82,7 @@ const ChatView: React.FC<ChatViewProps> = ({
             actionButtons: result.actionButtons
           };
           
-          useChatStore.setState(state => ({
+          useChatStore.setState((state: any) => ({
             messages: {
               ...state.messages,
               [conversationId]: [...conversationMessages, aiMessage]
@@ -95,7 +95,7 @@ const ChatView: React.FC<ChatViewProps> = ({
           setSuggestedActionButtons(result.actionButtons || []);
         }
       } else if (settings.mode === 'PASSIVE') {
-        const response = await generateResponse(lastMessage.content);
+        const response = await generateResponse(lastMessage.content, conversationId);
         if (response) {
           setSuggestedResponse(response);
           setSuggestedActionButtons([]);

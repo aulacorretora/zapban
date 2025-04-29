@@ -28,6 +28,7 @@ interface AgentState {
   settingsLoading: boolean;
   triggersLoading: boolean;
   error: string | null;
+  conversationHistory: Record<string, Array<{role: 'user' | 'assistant'; content: string}>>;
   
   initialize: (instanceId: string) => Promise<void>;
   loadSettings: (instanceId: string) => Promise<void>;
@@ -37,12 +38,14 @@ interface AgentState {
   addTrigger: (trigger: Omit<AgentTrigger, 'id' | 'is_active' | 'user_id' | 'instance_id' | 'created_at' | 'updated_at'> & { is_active?: boolean }) => Promise<void>;
   updateTrigger: (triggerId: string, updates: Partial<Omit<AgentTrigger, 'id' | 'user_id' | 'instance_id' | 'created_at' | 'updated_at'>>) => Promise<void>;
   removeTrigger: (triggerId: string) => Promise<void>;
-  generateResponse: (message: string) => Promise<string | null>;
-  processMessage: (message: string) => Promise<{ 
+  generateResponse: (message: string, conversationId: string) => Promise<string | null>;
+  processMessage: (message: string, conversationId: string) => Promise<{ 
     response: string | null; 
     source: 'trigger' | 'ai' | null; 
     actionButtons?: { text: string; action: string }[] 
   }>;
+  addToConversationHistory: (conversationId: string, message: string, isFromUser: boolean) => void;
+  transcribeAudio: (audioFile: File) => Promise<string | null>;
 }
 
 export const useAgentStore = create<AgentState>((set, get) => ({
@@ -53,6 +56,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
   settingsLoading: false,
   triggersLoading: false,
   error: null,
+  conversationHistory: {},
 
   initialize: async (instanceId: string) => {
     set({ instanceId, isLoading: true, error: null });
@@ -231,19 +235,28 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     }
   },
 
-  generateResponse: async (message: string) => {
-    const { instanceId, settings } = get();
+  generateResponse: async (message: string, conversationId: string) => {
+    const { instanceId, settings, conversationHistory } = get();
     
     if (!instanceId || !settings || !settings.is_active) {
       return null;
     }
     
     try {
+      get().addToConversationHistory(conversationId, message, true);
+      
+      const history = conversationHistory[conversationId] || [];
+      
       const response = await generateAIResponse({
         prompt: message,
         model: settings.openai_model,
-        temperature: settings.temperature
+        temperature: settings.temperature,
+        conversationHistory: history
       });
+      
+      if (response) {
+        get().addToConversationHistory(conversationId, response, false);
+      }
       
       return response;
     } catch (error) {
@@ -252,19 +265,67 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     }
   },
 
-  processMessage: async (message: string) => {
-    const { instanceId } = get();
+  processMessage: async (message: string, conversationId: string) => {
+    const { instanceId, conversationHistory } = get();
     
     if (!instanceId) {
       return { response: null, source: null };
     }
     
     try {
-      const result = await processMessageWithAgent(instanceId, message);
+      get().addToConversationHistory(conversationId, message, true);
+      
+      const history = conversationHistory[conversationId] || [];
+      
+      const result = await processMessageWithAgent(instanceId, message, history);
+      
+      if (result.response) {
+        get().addToConversationHistory(conversationId, result.response, false);
+      }
+      
       return result;
     } catch (error) {
       console.error('Erro ao processar mensagem com agente:', error);
       return { response: null, source: null };
+    }
+  },
+
+  addToConversationHistory: (conversationId: string, message: string, isFromUser: boolean) => {
+    set(state => {
+      const history = state.conversationHistory[conversationId] || [];
+      return {
+        ...state,
+        conversationHistory: {
+          ...state.conversationHistory,
+          [conversationId]: [
+            ...history,
+            { role: isFromUser ? 'user' : 'assistant', content: message }
+          ].slice(-10) // Keep only the last 10 messages for context
+        }
+      };
+    });
+  },
+  
+  transcribeAudio: async (audioFile: File) => {
+    const { instanceId, settings } = get();
+    
+    if (!instanceId || !settings || !settings.is_active) {
+      return null;
+    }
+    
+    try {
+      const openai = (await import('../lib/openaiService')).getOpenAIClient();
+      
+      if (!openai) {
+        throw new Error('Cliente OpenAI não inicializado. A chave da API pode estar faltando.');
+      }
+      
+      const transcription = await (await import('../lib/openaiService')).transcribeAudio(audioFile);
+      return transcription;
+    } catch (error) {
+      console.error('Erro ao transcrever áudio:', error);
+      set({ error: 'Falha ao transcrever áudio' });
+      return null;
     }
   }
 }));

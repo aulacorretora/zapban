@@ -1,6 +1,5 @@
 import OpenAI from 'openai';
 import { supabase } from './supabase';
-import { Database } from './database.types';
 
 let openaiClient: OpenAI | null = null;
 const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY || '';
@@ -33,6 +32,7 @@ export interface AgentCompletionParams {
   model?: string;
   temperature?: number;
   maxTokens?: number;
+  conversationHistory?: Array<{role: 'user' | 'assistant'; content: string}>;
 }
 
 export interface AgentTrigger {
@@ -248,18 +248,28 @@ export const generateAIResponse = async (
       throw new Error('OpenAI client not initialized. API key may be missing.');
     }
     
+    const messages = [
+      {
+        role: 'system',
+        content: 'Você é um assistente virtual de atendimento ao cliente profissional e amigável chamado ZapBrain. Suas respostas devem ser claras, úteis e naturais, como se fossem escritas por um humano. Use o contexto da conversa para fornecer respostas mais precisas e relevantes. Seja prestativo, mas conciso.'
+      }
+    ];
+    
+    if (params.conversationHistory && params.conversationHistory.length > 0) {
+      messages.push(...params.conversationHistory.map(msg => ({
+        role: msg.role as 'user' | 'assistant',
+        content: msg.content
+      })));
+    }
+    
+    messages.push({
+      role: 'user',
+      content: params.prompt
+    });
+    
     const completion = await openai.chat.completions.create({
       model: params.model || 'gpt-4-turbo',
-      messages: [
-        {
-          role: 'system',
-          content: 'Você é um assistente virtual de atendimento ao cliente profissional e amigável. Suas respostas devem ser claras, úteis e naturais, como se fossem escritas por um humano. Seja prestativo, mas conciso.'
-        },
-        {
-          role: 'user',
-          content: params.prompt
-        }
-      ],
+      messages: messages as Array<OpenAI.Chat.ChatCompletionMessageParam>,
       temperature: params.temperature || 0.7,
       max_tokens: params.maxTokens || 150,
     });
@@ -291,7 +301,8 @@ export const getAgentStatus = async (instanceId: string): Promise<{ isActive: bo
 
 export const processMessageWithAgent = async (
   instanceId: string,
-  message: string
+  message: string,
+  conversationHistory?: Array<{role: 'user' | 'assistant'; content: string}>
 ): Promise<{ response: string | null; source: 'trigger' | 'ai' | null; actionButtons?: { text: string; action: string }[] }> => {
   try {
     const agentStatus = await getAgentStatus(instanceId);
@@ -320,7 +331,8 @@ export const processMessageWithAgent = async (
       const aiResponse = await generateAIResponse({
         prompt: message,
         model: settings.openai_model,
-        temperature: settings.temperature
+        temperature: settings.temperature,
+        conversationHistory: conversationHistory
       });
       
       return { response: aiResponse, source: 'ai' };
@@ -330,5 +342,38 @@ export const processMessageWithAgent = async (
   } catch (error) {
     console.error('Error processing message with agent:', error);
     return { response: null, source: null };
+  }
+};
+
+/**
+ * Transcribe audio using OpenAI's Whisper API
+ * @param audioFile File object containing the audio to transcribe
+ * @returns Transcribed text or null if transcription failed
+ */
+export const transcribeAudio = async (audioFile: File): Promise<string | null> => {
+  try {
+    const openai = getOpenAIClient();
+    
+    if (!openai) {
+      throw new Error('OpenAI client not initialized. API key may be missing.');
+    }
+    
+    const arrayBuffer = await audioFile.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    
+    const blob = new Blob([buffer]);
+    const file = new File([blob], audioFile.name, { type: audioFile.type });
+    
+    const transcription = await openai.audio.transcriptions.create({
+      file: file,
+      model: 'whisper-1',
+      language: 'pt',
+      response_format: 'text'
+    });
+    
+    return transcription || null;
+  } catch (error) {
+    console.error('Error transcribing audio:', error);
+    return null;
   }
 };
