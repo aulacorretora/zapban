@@ -377,3 +377,91 @@ export const transcribeAudio = async (audioFile: File): Promise<string | null> =
     return null;
   }
 };
+
+/**
+ * Analyze image using OpenAI's Vision API
+ * @param imageFile File object containing the image to analyze
+ * @returns Analysis result (OCR text and object recognition) or null if analysis failed
+ */
+export const analyzeImage = async (imageFile: File): Promise<{ text: string; objects: string[] } | null> => {
+  try {
+    const openai = getOpenAIClient();
+    
+    if (!openai) {
+      throw new Error('OpenAI client not initialized. API key may be missing.');
+    }
+    
+    const arrayBuffer = await imageFile.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const base64Image = buffer.toString('base64');
+    
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4-vision-preview',
+      messages: [
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: 'Analyze this image. Extract any text (OCR) and identify main objects. Return a JSON with format {"text": "extracted text", "objects": ["object1", "object2"]}' },
+            {
+              type: 'image_url',
+              image_url: {
+                url: `data:${imageFile.type};base64,${base64Image}`
+              }
+            }
+          ]
+        }
+      ],
+      max_tokens: 300,
+      response_format: { type: 'json_object' }
+    });
+    
+    const result = JSON.parse(response.choices[0].message.content || '{"text": "", "objects": []}');
+    return result;
+  } catch (error) {
+    console.error('Error analyzing image:', error);
+    return null;
+  }
+};
+
+/**
+ * Extract text from PDF file
+ * @param pdfFile File object containing the PDF to extract text from
+ * @returns Extracted text or null if extraction failed
+ */
+export const extractPdfText = async (pdfFile: File): Promise<string | null> => {
+  try {
+    const openai = getOpenAIClient();
+    
+    if (!openai) {
+      throw new Error('OpenAI client not initialized. API key may be missing.');
+    }
+    
+    const arrayBuffer = await pdfFile.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const base64Pdf = buffer.toString('base64');
+    
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4-vision-preview',
+      messages: [
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: 'Extract all text from this PDF document.' },
+            {
+              type: 'image_url',
+              image_url: {
+                url: `data:application/pdf;base64,${base64Pdf}`
+              }
+            }
+          ]
+        }
+      ],
+      max_tokens: 1000
+    });
+    
+    return response.choices[0].message.content || null;
+  } catch (error) {
+    console.error('Error extracting PDF text:', error);
+    return null;
+  }
+};
