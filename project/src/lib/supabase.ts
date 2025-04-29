@@ -8,6 +8,14 @@ const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 // Create Supabase client
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
 
+export const getApiBaseUrl = () => {
+  // Check if we're in production (zapban.com)
+  if (window.location.hostname === 'zapban.com') {
+    return 'https://zapban.com';
+  }
+  return '';
+};
+
 // Check if user is authenticated
 export const checkAuth = async () => {
   const { data: { session }, error } = await supabase.auth.getSession();
@@ -175,7 +183,7 @@ export const updateInstanceStatus = async (instanceId: string, status: string) =
   try {
     try {
       const vpsResponse = await fetch(
-        `/api/whatsapp/update-status?id=${instanceId}&status=${status}`,
+        `${getApiBaseUrl()}/api/whatsapp/update-status?id=${instanceId}&status=${status}`,
         {
           method: 'GET',
           headers: {
@@ -213,7 +221,7 @@ export const updateInstanceStatus = async (instanceId: string, status: string) =
 export const connectWhatsApp = async (instanceId: string) => {
   try {
     const response = await fetch(
-      `/api/whatsapp/connect?id=${instanceId}`,
+      `${getApiBaseUrl()}/api/whatsapp/connect?id=${instanceId}`,
       {
         method: 'GET',
         headers: {
@@ -240,7 +248,7 @@ export const getInstanceStatus = async (instanceId: string) => {
   try {
     try {
       const response = await fetch(
-        `/api/whatsapp/status?id=${instanceId}`,
+        `${getApiBaseUrl()}/api/whatsapp/status?id=${instanceId}`,
         {
           method: 'GET',
           headers: {
