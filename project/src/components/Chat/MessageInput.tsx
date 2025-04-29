@@ -11,10 +11,13 @@ const MessageInput: React.FC<MessageInputProps> = ({ onSendMessage, disabled = f
   const [message, setMessage] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [audioFile, setAudioFile] = useState<File | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [isTranscribing, setIsTranscribing] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  const { transcribeAudio } = useAgentStore();
+  const { transcribeAudio, analyzeImage, extractPdfText } = useAgentStore();
   
   const handleSendMessage = async () => {
     if (message.trim() === '') return;
@@ -52,6 +55,42 @@ const MessageInput: React.FC<MessageInputProps> = ({ onSendMessage, disabled = f
           fileInputRef.current.value = '';
         }
       }
+    } else if (file.type.startsWith('image/')) {
+      setImageFile(file);
+      setIsAnalyzing(true);
+      
+      try {
+        const analysis = await analyzeImage(file);
+        if (analysis && analysis.text) {
+          setMessage(prev => prev + (prev ? ' ' : '') + `Texto na imagem: ${analysis.text}`);
+        }
+      } catch (error) {
+        console.error('Error analyzing image:', error);
+      } finally {
+        setIsAnalyzing(false);
+        setImageFile(null);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+      }
+    } else if (file.type === 'application/pdf') {
+      setPdfFile(file);
+      setIsAnalyzing(true);
+      
+      try {
+        const text = await extractPdfText(file);
+        if (text) {
+          setMessage(prev => prev + (prev ? ' ' : '') + `Texto do PDF: ${text}`);
+        }
+      } catch (error) {
+        console.error('Error extracting PDF text:', error);
+      } finally {
+        setIsAnalyzing(false);
+        setPdfFile(null);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+      }
     }
   };
   
@@ -70,7 +109,7 @@ const MessageInput: React.FC<MessageInputProps> = ({ onSendMessage, disabled = f
             placeholder="Digite uma mensagem..."
             className="w-full bg-transparent border-0 focus:ring-0 resize-none text-sm max-h-20 min-h-[40px]"
             rows={1}
-            disabled={disabled || isTranscribing}
+            disabled={disabled || isTranscribing || isAnalyzing}
           />
           
           {isTranscribing && (
@@ -79,20 +118,27 @@ const MessageInput: React.FC<MessageInputProps> = ({ onSendMessage, disabled = f
               <span>Transcrevendo áudio...</span>
             </div>
           )}
+          
+          {isAnalyzing && (
+            <div className="flex items-center space-x-2 mt-2 text-sm text-gray-500">
+              <Loader size={14} className="animate-spin" />
+              <span>Analisando arquivo...</span>
+            </div>
+          )}
         </div>
         
         <input
           type="file"
           ref={fileInputRef}
           onChange={handleFileChange}
-          accept="audio/*"
+          accept="audio/*,image/*,application/pdf"
           className="hidden"
         />
         
         <button
           onClick={handleSelectAudioFile}
           className="p-2 rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
-          disabled={disabled || isTranscribing}
+          disabled={disabled || isTranscribing || isAnalyzing}
           title="Selecionar arquivo de áudio"
         >
           <Mic size={20} />
@@ -101,7 +147,7 @@ const MessageInput: React.FC<MessageInputProps> = ({ onSendMessage, disabled = f
         <button
           onClick={handleSendMessage}
           className="p-2 rounded-full bg-green-500 text-white hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
-          disabled={message.trim() === '' || disabled || isTranscribing}
+          disabled={message.trim() === '' || disabled || isTranscribing || isAnalyzing}
         >
           <Send size={20} />
         </button>

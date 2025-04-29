@@ -46,6 +46,8 @@ interface AgentState {
   }>;
   addToConversationHistory: (conversationId: string, message: string, isFromUser: boolean) => void;
   transcribeAudio: (audioFile: File) => Promise<string | null>;
+  analyzeImage: (imageFile: File) => Promise<{ text: string; objects: string[] } | null>;
+  extractPdfText: (pdfFile: File) => Promise<string | null>;
 }
 
 export const useAgentStore = create<AgentState>((set, get) => ({
@@ -325,6 +327,52 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     } catch (error) {
       console.error('Erro ao transcrever áudio:', error);
       set({ error: 'Falha ao transcrever áudio' });
+      return null;
+    }
+  },
+  
+  analyzeImage: async (imageFile: File) => {
+    const { instanceId, settings } = get();
+    
+    if (!instanceId || !settings || !settings.is_active) {
+      return null;
+    }
+    
+    try {
+      const openai = (await import('../lib/openaiService')).getOpenAIClient();
+      
+      if (!openai) {
+        throw new Error('Cliente OpenAI não inicializado. A chave da API pode estar faltando.');
+      }
+      
+      const analysis = await (await import('../lib/openaiService')).analyzeImage(imageFile);
+      return analysis;
+    } catch (error) {
+      console.error('Erro ao analisar imagem:', error);
+      set({ error: 'Falha ao analisar imagem' });
+      return null;
+    }
+  },
+  
+  extractPdfText: async (pdfFile: File) => {
+    const { instanceId, settings } = get();
+    
+    if (!instanceId || !settings || !settings.is_active) {
+      return null;
+    }
+    
+    try {
+      const openai = (await import('../lib/openaiService')).getOpenAIClient();
+      
+      if (!openai) {
+        throw new Error('Cliente OpenAI não inicializado. A chave da API pode estar faltando.');
+      }
+      
+      const text = await (await import('../lib/openaiService')).extractPdfText(pdfFile);
+      return text;
+    } catch (error) {
+      console.error('Erro ao extrair texto do PDF:', error);
+      set({ error: 'Falha ao extrair texto do PDF' });
       return null;
     }
   }

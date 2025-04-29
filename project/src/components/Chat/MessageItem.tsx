@@ -2,7 +2,7 @@ import React from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Message, MessageStatus, MessageType } from './types';
-import { Check, CheckCheck, Clock, AlertCircle, Bot, Mic } from 'lucide-react';
+import { Check, CheckCheck, Clock, AlertCircle, Bot, Mic, Image, FileText } from 'lucide-react';
 
 interface MessageItemProps {
   message: Message;
@@ -54,7 +54,27 @@ const MessageItem: React.FC<MessageItemProps> = ({
         <div>
           <div className="bg-gray-100 p-2 rounded-md mb-2 flex items-center">
             <Mic size={16} className="text-gray-500 mr-1" />
-            <span className="text-xs text-gray-500">Áudio transcrito</span>
+            <span className="text-xs text-gray-500">🔊 Áudio transcrito</span>
+          </div>
+          <p className="text-sm whitespace-pre-wrap break-words">{content}</p>
+        </div>
+      );
+    } else if (type === MessageType.IMAGE) {
+      return (
+        <div>
+          <div className="bg-gray-100 p-2 rounded-md mb-2 flex items-center">
+            <Image size={16} className="text-gray-500 mr-1" />
+            <span className="text-xs text-gray-500">🖼️ Imagem analisada</span>
+          </div>
+          <p className="text-sm whitespace-pre-wrap break-words">{content}</p>
+        </div>
+      );
+    } else if (type === MessageType.DOCUMENT) {
+      return (
+        <div>
+          <div className="bg-gray-100 p-2 rounded-md mb-2 flex items-center">
+            <FileText size={16} className="text-gray-500 mr-1" />
+            <span className="text-xs text-gray-500">📄 PDF extraído</span>
           </div>
           <p className="text-sm whitespace-pre-wrap break-words">{content}</p>
         </div>
