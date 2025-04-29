@@ -53,6 +53,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobile, closeMobileMenu }) => {
     { path: '/dashboard', icon: <Home size={20} />, label: 'Início' },
     { path: '/chat', icon: <MessageSquare size={20} />, label: 'Chat' },
     { path: '/automations', icon: <Bot size={20} />, label: 'Automações' },
+    { path: '/agent', icon: <Bot size={20} />, label: '🤖 Agente Humanizado' },
     { path: '/webhooks', icon: <LinkIcon size={20} />, label: 'Webhooks' },
     { path: '/settings', icon: <Settings size={20} />, label: 'Configurações' },
   ];

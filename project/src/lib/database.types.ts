@@ -90,6 +90,76 @@ export interface Database {
           features?: Json
         }
       }
+      agent_settings: {
+        Row: {
+          id: string
+          user_id: string
+          instance_id: string
+          is_active: boolean
+          mode: string
+          openai_model: string
+          temperature: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          instance_id: string
+          is_active?: boolean
+          mode?: string
+          openai_model?: string
+          temperature?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          instance_id?: string
+          is_active?: boolean
+          mode?: string
+          openai_model?: string
+          temperature?: number
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      agent_triggers: {
+        Row: {
+          id: string
+          user_id: string
+          instance_id: string
+          trigger_phrase: string
+          response: string
+          is_active: boolean
+          action_buttons: Json | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          instance_id: string
+          trigger_phrase: string
+          response: string
+          is_active?: boolean
+          action_buttons?: Json | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          instance_id?: string
+          trigger_phrase?: string
+          response?: string
+          is_active?: boolean
+          action_buttons?: Json | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
     }
   }
 }
