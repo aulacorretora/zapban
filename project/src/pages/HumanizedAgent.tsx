@@ -11,7 +11,8 @@ import {
   Check,
   X,
   Sliders,
-  Info
+  Info,
+  Search
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useUserStore } from '../stores/userStore';
@@ -63,6 +64,9 @@ const HumanizedAgent: React.FC = () => {
     is_active: true,
     action_buttons: []
   });
+  
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
   
   useEffect(() => {
     const loadInstances = async () => {
@@ -456,6 +460,32 @@ const HumanizedAgent: React.FC = () => {
                 </button>
               </div>
               
+              {/* Search and filter */}
+              {triggers.length > 0 && !showTriggerForm && (
+                <div className="mb-4 flex flex-col sm:flex-row gap-2">
+                  <div className="relative flex-grow">
+                    <input
+                      type="text"
+                      placeholder="Buscar gatilhos..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full p-2 pl-8 border border-gray-300 rounded-md focus:ring-whatsapp focus:border-whatsapp"
+                    />
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400" />
+                  </div>
+                  
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value as 'all' | 'active' | 'inactive')}
+                    className="p-2 border border-gray-300 rounded-md focus:ring-whatsapp focus:border-whatsapp"
+                  >
+                    <option value="all">Todos os status</option>
+                    <option value="active">Ativos</option>
+                    <option value="inactive">Inativos</option>
+                  </select>
+                </div>
+              )}
+              
               {/* Trigger form */}
               {showTriggerForm && (
                 <div className="mb-6 bg-gray-50 p-4 rounded-lg border border-gray-200">
@@ -574,7 +604,20 @@ const HumanizedAgent: React.FC = () => {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {triggers.map((trigger) => (
+                      {triggers
+                        .filter(trigger => {
+                          const matchesSearch = searchTerm === '' || 
+                            trigger.trigger_phrase.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            trigger.response.toLowerCase().includes(searchTerm.toLowerCase());
+                          
+                          const matchesStatus = 
+                            statusFilter === 'all' || 
+                            (statusFilter === 'active' && trigger.is_active) ||
+                            (statusFilter === 'inactive' && !trigger.is_active);
+                          
+                          return matchesSearch && matchesStatus;
+                        })
+                        .map((trigger) => (
                         <tr key={trigger.id}>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
