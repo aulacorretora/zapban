@@ -395,3 +395,87 @@ export const getMessageAnalytics = async (userId: string, startDate: string, end
 
   return data;
 };
+
+// Get WhatsApp conversations
+export const getWhatsAppConversations = async (instanceId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('messages')
+      .select('contact_number, content, direction, created_at, type, media_url, id')
+      .eq('instance_id', instanceId)
+      .order('created_at', { ascending: false });
+    
+    if (error) throw error;
+    
+    const groupedByContact: Record<string, any[]> = {};
+    
+    data?.forEach(message => {
+      if (!groupedByContact[message.contact_number]) {
+        groupedByContact[message.contact_number] = [];
+      }
+      groupedByContact[message.contact_number].push(message);
+    });
+    
+    const conversations = Object.entries(groupedByContact).map(([phoneNumber, messages]) => {
+      const lastMessage = messages[0]; // messages are ordered by created_at desc
+      
+      return {
+        id: phoneNumber, // Using phone number as id
+        contact: {
+          id: phoneNumber,
+          name: phoneNumber, // Placeholder name (could be updated with contacts API)
+          phoneNumber,
+          profilePicUrl: null,
+          isOnline: false,
+          lastSeen: null,
+        },
+        lastMessage: {
+          id: `${lastMessage.id}`,
+          content: lastMessage.content,
+          timestamp: lastMessage.created_at,
+          isFromMe: lastMessage.direction === 'OUTBOUND',
+          status: 'DELIVERED',
+          type: lastMessage.type || 'TEXT',
+          mediaUrl: lastMessage.media_url || null,
+        },
+        unreadCount: 0, // Could be calculated based on read status
+        timestamp: lastMessage.created_at,
+      };
+    });
+    
+    return conversations;
+  } catch (error) {
+    console.error('Error fetching WhatsApp conversations:', error);
+    throw error;
+  }
+};
+
+// Get WhatsApp messages for a specific conversation
+export const getWhatsAppMessages = async (instanceId: string, contactNumber: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('messages')
+      .select('*')
+      .eq('instance_id', instanceId)
+      .eq('contact_number', contactNumber)
+      .order('created_at', { ascending: true });
+    
+    if (error) throw error;
+    
+    const messages = data?.map(message => ({
+      id: `${message.id}`,
+      conversationId: contactNumber,
+      content: message.content,
+      timestamp: message.created_at,
+      isFromMe: message.direction === 'OUTBOUND',
+      status: 'DELIVERED',
+      type: message.type || 'TEXT',
+      mediaUrl: message.media_url || null,
+    }));
+    
+    return messages;
+  } catch (error) {
+    console.error('Error fetching WhatsApp messages:', error);
+    throw error;
+  }
+};

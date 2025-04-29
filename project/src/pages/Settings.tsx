@@ -13,6 +13,7 @@ import {
   updateInstanceName
 } from '../lib/supabase';
 import { useUserStore } from '../stores/userStore';
+import { useChatStore } from '../stores/chatStore';
 
 const Settings: React.FC = () => {
   const { user } = useUserStore();
@@ -101,6 +102,9 @@ const Settings: React.FC = () => {
             setShowQRCode(false);
             clearInterval(checkStatusInterval);
             toast.success('WhatsApp connected successfully');
+            
+            const { loadConversations } = useChatStore.getState();
+            loadConversations(instanceId);
           }
         }, 2000);
         

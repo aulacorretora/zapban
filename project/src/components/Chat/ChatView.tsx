@@ -45,9 +45,9 @@ const ChatView: React.FC<ChatViewProps> = ({
   
   useEffect(() => {
     if (conversationId) {
-      loadMessages(conversationId);
+      loadMessages(conversationId, instanceId);
     }
-  }, [conversationId, loadMessages]);
+  }, [conversationId, loadMessages, instanceId]);
   
   useEffect(() => {
     if (conversationId && conversation?.unreadCount) {
