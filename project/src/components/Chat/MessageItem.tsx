@@ -1,8 +1,8 @@
 import React from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Message, MessageStatus } from './types';
-import { Check, CheckCheck, Clock, AlertCircle, Bot } from 'lucide-react';
+import { Message, MessageStatus, MessageType } from './types';
+import { Check, CheckCheck, Clock, AlertCircle, Bot, Mic } from 'lucide-react';
 
 interface MessageItemProps {
   message: Message;
@@ -25,7 +25,7 @@ const MessageItem: React.FC<MessageItemProps> = ({
   actionButtons = [],
   onActionClick
 }) => {
-  const { content, isFromMe, timestamp, status } = message;
+  const { content, isFromMe, timestamp, status, type } = message;
   
   const formattedTime = format(new Date(timestamp), 'HH:mm', { locale: ptBR });
   
@@ -46,6 +46,22 @@ const MessageItem: React.FC<MessageItemProps> = ({
       default:
         return null;
     }
+  };
+  
+  const renderContent = () => {
+    if (type === MessageType.AUDIO) {
+      return (
+        <div>
+          <div className="bg-gray-100 p-2 rounded-md mb-2 flex items-center">
+            <Mic size={16} className="text-gray-500 mr-1" />
+            <span className="text-xs text-gray-500">Áudio transcrito</span>
+          </div>
+          <p className="text-sm whitespace-pre-wrap break-words">{content}</p>
+        </div>
+      );
+    }
+    
+    return <p className="text-sm whitespace-pre-wrap break-words">{content}</p>;
   };
   
   return (
@@ -72,7 +88,7 @@ const MessageItem: React.FC<MessageItemProps> = ({
         )}
         
         {/* Message content */}
-        <p className="text-sm whitespace-pre-wrap break-words">{content}</p>
+        {renderContent()}
         
         {/* Action buttons for AI responses */}
         {isAIResponse && actionButtons && actionButtons.length > 0 && (
