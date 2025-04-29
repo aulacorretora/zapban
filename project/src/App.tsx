@@ -7,6 +7,7 @@ import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
 import Settings from './pages/Settings';
 import HumanizedAgent from './pages/HumanizedAgent';
+import ChatPage from './pages/ChatPage';
 import { supabase } from './lib/supabase';
 
 function App() {
@@ -51,7 +52,7 @@ function App() {
           {/* Additional routes will be added as they are implemented */}
           <Route path="/automations" element={<div>Automations page coming soon</div>} />
           <Route path="/agent" element={<HumanizedAgent />} />
-          <Route path="/chat" element={<div>Chat page coming soon</div>} />
+          <Route path="/chat" element={<ChatPage />} />
           <Route path="/webhooks" element={<div>Webhooks page coming soon</div>} />
           <Route path="/admin" element={<div>Admin page coming soon</div>} />
         </Route>
