@@ -479,3 +479,55 @@ export const getWhatsAppMessages = async (instanceId: string, contactNumber: str
     throw error;
   }
 };
+
+export const sendWhatsAppMessage = async (instanceId: string, contactNumber: string, content: string, mediaType?: string, mediaUrl?: string) => {
+  try {
+    // First, try to send the message through the WhatsApp API
+    try {
+      const response = await fetch(
+        `${getApiBaseUrl()}/api/whatsapp/send-message`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            instanceId,
+            to: contactNumber,
+            message: content,
+            mediaType,
+            mediaUrl
+          })
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        return data;
+      }
+    } catch (apiError) {
+      console.error('Error sending message through API:', apiError);
+    }
+
+    const { data, error } = await supabase
+      .from('messages')
+      .insert({
+        instance_id: instanceId,
+        contact_number: contactNumber,
+        content: content,
+        direction: 'OUTBOUND',
+        type: mediaType || 'TEXT',
+        media_url: mediaUrl || null,
+        created_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    
+    return data;
+  } catch (error) {
+    console.error('Error sending WhatsApp message:', error);
+    throw error;
+  }
+};

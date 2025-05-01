@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useChatStore } from '../../stores/chatStore';
 import { useAgentStore } from '../../stores/agentStore';
 import { ArrowLeft, Phone, MoreVertical, Bot } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 import ContactAvatar from './ContactAvatar';
 import MessageList from './MessageList';
 import MessageInput from './MessageInput';
@@ -117,7 +118,15 @@ const ChatView: React.FC<ChatViewProps> = ({
   }, [conversationMessages, settings, instanceId, conversationId, sendMessage, processMessage, generateResponse]);
   
   const handleSendMessage = (content: string) => {
-    sendMessage(conversationId, content);
+    if (!instanceId) {
+      toast.error("Nenhuma instância do WhatsApp conectada");
+      return;
+    }
+    
+    sendMessage(conversationId, content)
+      .catch(error => {
+        toast.error(`Erro ao enviar mensagem: ${error.message}`);
+      });
     setSuggestedResponse(null);
     setSuggestedActionButtons([]);
   };

@@ -201,7 +201,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         type: mediaType || MessageType.TEXT,
         timestamp: new Date().toISOString(),
         isFromMe: true,
-        status: MessageStatus.SENT
+        status: MessageStatus.SENDING
       };
       
       const conversationMessages = get().messages[conversationId] || [];
@@ -213,12 +213,41 @@ export const useChatStore = create<ChatState>((set, get) => ({
         }
       }));
       
+      const instanceId = (await import('./agentStore')).useAgentStore.getState().instanceId;
+      
+      if (!instanceId) {
+        throw new Error('Nenhuma instância do WhatsApp conectada');
+      }
+      
+      const result = await supabase.sendWhatsAppMessage(
+        instanceId,
+        conversationId, // Using conversationId as phone number (from previous implementation)
+        content,
+        mediaType,
+        mediaUrl
+      );
+      
+      const updatedMessage = {
+        ...newMessage,
+        id: result?.id ? `${result.id}` : newMessage.id,
+        status: MessageStatus.SENT
+      };
+      
+      set(state => ({
+        messages: {
+          ...state.messages,
+          [conversationId]: conversationMessages.map(msg => 
+            msg.id === newMessage.id ? updatedMessage : msg
+          )
+        }
+      }));
+      
       set(state => {
         const updatedConversations = state.conversations.map(conv => {
           if (conv.id === conversationId) {
             return {
               ...conv,
-              lastMessage: newMessage,
+              lastMessage: updatedMessage,
               updatedAt: new Date().toISOString()
             };
           }
@@ -228,7 +257,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         return { conversations: updatedConversations };
       });
       
-      return newMessage;
+      return updatedMessage;
     } catch (error) {
       console.error('Erro ao enviar mensagem:', error);
       set({ error: 'Falha ao enviar mensagem' });
