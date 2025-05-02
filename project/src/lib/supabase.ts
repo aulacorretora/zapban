@@ -236,6 +236,15 @@ export const connectWhatsApp = async (instanceId: string) => {
     }
 
     const data = await response.json();
+    
+    setTimeout(async () => {
+      try {
+        await getInstanceStatus(instanceId);
+      } catch (statusError) {
+        console.warn('Failed to update status after connect:', statusError);
+      }
+    }, 1000);
+    
     return data;
   } catch (error) {
     console.error('Error connecting to WhatsApp:', error);
@@ -264,12 +273,37 @@ export const getInstanceStatus = async (instanceId: string) => {
           await updateInstanceStatus(instanceId, data.status);
           return { status: data.status, connection_data: data.connection_data || null };
         }
+      } else {
+        console.warn(`VPS API status endpoint returned error: ${response.status}`);
       }
     } catch (apiError) {
-      console.warn('VPS API status endpoint not available, falling back to Supabase:', apiError);
+      console.warn('VPS API status endpoint not available, trying Supabase Functions:', apiError);
+      
+      try {
+        const supabaseResponse = await fetch(
+          `${supabaseUrl}/functions/v1/whatsapp-status?id=${instanceId}`,
+          {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+        
+        if (supabaseResponse.ok) {
+          const data = await supabaseResponse.json();
+          if (data && data.status) {
+            // Update Supabase with the latest status
+            await updateInstanceStatus(instanceId, data.status);
+            return { status: data.status, connection_data: data.connection_data || null };
+          }
+        }
+      } catch (edgeError) {
+        console.warn('Supabase edge function also unavailable, falling back to database:', edgeError);
+      }
     }
 
-    // Fallback to Supabase if VPS API fails or doesn't exist
+    // Fallback to Supabase if all API calls fail
     const { data, error } = await supabase
       .from('whatsapp_instances')
       .select('status, connection_data')
