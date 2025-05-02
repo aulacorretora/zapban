@@ -7,6 +7,9 @@ import ChatView from '../components/Chat/ChatView';
 import { AlertTriangle, MessageSquare, UserCircle, Phone } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { Conversation } from '../components/Chat/types';
+import * as supabase from '../lib/supabase';
+
+const supabaseUrl = 'https://mopdlsgtfddzqjjerecz.supabase.co';
 
 const ChatPage: React.FC = () => {
   const { user } = useUserStore();
@@ -29,7 +32,47 @@ const ChatPage: React.FC = () => {
   
   useEffect(() => {
     if (instanceId) {
-      loadConversations(instanceId);
+      supabase.checkAuth().then(({ data }) => {
+        const sessionToken = data.session?.access_token;
+        if (sessionToken) {
+          fetch(`${supabaseUrl}/functions/v1/get-conversations?instance_id=${instanceId}`, {
+            headers: {
+              Authorization: `Bearer ${sessionToken}`
+            }
+          })
+            .then((res) => res.json())
+            .then((data) => {
+              const conversations = data.map(item => ({
+                id: item.number,
+                contact: {
+                  id: item.number,
+                  name: item.name,
+                  phoneNumber: item.number,
+                  profilePicUrl: null,
+                  isOnline: false,
+                  lastSeen: null,
+                },
+                lastMessage: {
+                  id: `last-${item.number}`,
+                  conversationId: item.number,
+                  content: item.lastMessage,
+                  timestamp: item.timestamp,
+                  isFromMe: false,  // Isso pode ser atualizado se necessário
+                  status: 'DELIVERED'
+                },
+                unreadCount: 0,
+                updatedAt: item.timestamp
+              }));
+              useChatStore.setState({ conversations, conversationsLoading: false });
+            })
+            .catch((err) => {
+              console.error(err);
+              loadConversations(instanceId);
+            });
+        } else {
+          loadConversations(instanceId);
+        }
+      });
     }
   }, [instanceId, loadConversations]);
   
