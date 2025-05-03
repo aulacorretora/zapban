@@ -227,6 +227,49 @@ const ChatPage: React.FC = () => {
           <MessageSquare className="mx-auto h-12 w-12 text-gray-400" />
           <h3 className="mt-2 text-lg font-medium text-gray-900">Nenhuma conversa encontrada</h3>
           <p className="mt-1 text-gray-500">Inicie uma nova conversa para começar</p>
+          <div className="mt-6">
+            {/* Debug button to help diagnose conversation loading issues */}
+            <button
+              onClick={async () => {
+                console.log('Debug: Instance ID atual:', instanceId);
+                
+                try {
+                  console.log('Debug: Buscando instâncias do WhatsApp para o usuário:', user.id);
+                  const instances = await supabase.getWhatsappInstances(user.id);
+                  console.log('Debug: Instâncias encontradas:', instances);
+                  
+                  if (instanceId) {
+                    console.log('Debug: Tentando carregar conversas diretamente via supabase.getWhatsAppConversations');
+                    const conversations = await supabase.getWhatsAppConversations(instanceId);
+                    console.log('Debug: Conversas retornadas:', conversations);
+                    
+                    if (conversations && conversations.length > 0) {
+                      console.log('Debug: Atualizando estado com conversas encontradas');
+                      useChatStore.setState({ conversations, conversationsLoading: false });
+                      toast.success(`${conversations.length} conversas carregadas com sucesso!`);
+                    } else {
+                      console.log('Debug: Nenhuma conversa encontrada para a instância', instanceId);
+                      toast.error('Nenhuma conversa encontrada para esta instância');
+                    }
+                  } else if (instances.length > 0) {
+                    const firstInstance = instances[0];
+                    console.log('Debug: Usando primeira instância disponível:', firstInstance.id);
+                    initialize(firstInstance.id);
+                    toast.success('Instância inicializada, tentando carregar conversas...');
+                  } else {
+                    console.log('Debug: Nenhuma instância disponível');
+                    toast.error('Nenhuma instância do WhatsApp disponível');
+                  }
+                } catch (error) {
+                  console.error('Debug: Erro ao carregar conversas:', error);
+                  toast.error('Erro ao carregar conversas');
+                }
+              }}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-500 hover:bg-blue-600"
+            >
+              Testar Carregamento
+            </button>
+          </div>
         </div>
       </div>
     );
