@@ -35,14 +35,20 @@ const ChatPage: React.FC = () => {
       supabase.checkAuth().then((session) => {
         const sessionToken = session?.access_token;
         if (sessionToken) {
+          console.log(`Buscando conversas para instance_id: ${instanceId}`);
           fetch(`${supabaseUrl}/functions/v1/get-conversations?instance_id=${instanceId}`, {
             headers: {
               Authorization: `Bearer ${sessionToken}`
             }
           })
-            .then((res) => res.json())
+            .then((res) => {
+              console.log(`Resposta da edge function: status ${res.status}`);
+              return res.json();
+            })
             .then((data) => {
+              console.log(`Dados recebidos da edge function:`, data);
               if (data && Array.isArray(data)) {
+                console.log(`Processando ${data.length} conversas da edge function`);
                 const conversations = data.map(item => ({
                   id: item.number,
                   contact: {
@@ -65,13 +71,16 @@ const ChatPage: React.FC = () => {
                   updatedAt: item.timestamp
                 }));
                 useChatStore.setState({ conversations, conversationsLoading: false });
+                console.log(`Conversas processadas e atualizadas no estado:`, conversations);
               } else {
                 console.error('Formato de dados inválido:', data);
+                console.log('Fallback para loadConversations via supabase');
                 loadConversations(instanceId);
               }
             })
             .catch((err) => {
               console.error('Erro ao carregar conversas do edge function:', err);
+              console.log('Fallback para loadConversations via supabase devido a erro');
               loadConversations(instanceId);
             });
         } else {

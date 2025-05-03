@@ -29,14 +29,17 @@ export const useChatStore = create<ChatState>((set, get) => ({
   
   loadConversations: async (instanceId?: string) => {
     if (!instanceId) {
+      console.log('loadConversations: Nenhuma instância do WhatsApp conectada');
       set({ error: "Nenhuma instância do WhatsApp conectada" });
       return [];
     }
     
+    console.log(`loadConversations: Carregando conversas para instância ${instanceId}`);
     set({ conversationsLoading: true, error: null });
     
     try {
       const conversations = await supabase.getWhatsAppConversations(instanceId);
+      console.log(`loadConversations: ${conversations.length} conversas encontradas`, conversations);
       set({ conversations, conversationsLoading: false });
       return conversations;
     } catch (error) {
