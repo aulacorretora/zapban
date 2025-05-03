@@ -27,11 +27,32 @@ const ChatPage: React.FC = () => {
   useEffect(() => {
     if (!user) return;
 
-    initialize(user.id);
+    const fetchWhatsAppInstances = async () => {
+      try {
+        console.log('Buscando instâncias do WhatsApp para o usuário:', user.id);
+        const instances = await supabase.getWhatsappInstances(user.id);
+        console.log('Instâncias encontradas:', instances);
+        
+        const connectedInstance = instances.find((instance) => instance.status === 'CONNECTED');
+        const instanceToUse = connectedInstance || (instances.length > 0 ? instances[0] : null);
+        
+        if (instanceToUse) {
+          console.log('Inicializando agentStore com a instância:', instanceToUse.id);
+          initialize(instanceToUse.id);
+        } else {
+          console.log('Nenhuma instância do WhatsApp encontrada para o usuário');
+        }
+      } catch (error) {
+        console.error('Erro ao buscar instâncias do WhatsApp:', error);
+      }
+    };
+
+    fetchWhatsAppInstances();
   }, [user, initialize]);
 
   useEffect(() => {
     if (instanceId) {
+      console.log(`useEffect: Usando instância ${instanceId} para carregar conversas`);
       supabase.checkAuth().then((session) => {
         const sessionToken = session?.access_token;
         if (sessionToken) {
@@ -143,6 +164,26 @@ const ChatPage: React.FC = () => {
               className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary hover:bg-primary-dark"
             >
               Tentar novamente
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!instanceId) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center">
+          <Phone className="mx-auto h-12 w-12 text-gray-400" />
+          <h3 className="mt-2 text-lg font-medium text-gray-900">Sem instância do WhatsApp</h3>
+          <p className="mt-1 text-gray-500">Conecte uma instância do WhatsApp nas configurações para ver as conversas</p>
+          <div className="mt-6">
+            <button
+              onClick={() => navigate('/settings')}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary hover:bg-primary-dark"
+            >
+              Ir para Configurações
             </button>
           </div>
         </div>
