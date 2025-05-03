@@ -39,7 +39,9 @@ const ChatPage: React.FC = () => {
         if (instanceToUse) {
           console.log('Inicializando agentStore com a instância:', instanceToUse.id);
           try {
+            useAgentStore.setState({ instanceId: instanceToUse.id });
             initialize(instanceToUse.id);
+            console.log('agentStore inicializado com sucesso, instanceId definido:', instanceToUse.id);
           } catch (error) {
             console.error('Erro ao inicializar agentStore:', error);
           }
@@ -145,7 +147,12 @@ const ChatPage: React.FC = () => {
 
   useEffect(() => {
     if (conversations.length > 0 && !selectedConversationId) {
+      console.log('Nenhuma conversa selecionada. Selecionando a primeira conversa automaticamente:', conversations[0].id);
       selectConversation(conversations[0].id);
+    } else if (conversations.length > 0 && selectedConversationId) {
+      console.log('Conversa já selecionada:', selectedConversationId);
+    } else if (conversations.length === 0) {
+      console.log('Nenhuma conversa disponível para selecionar');
     }
   }, [conversations, selectedConversationId, selectConversation]);
 
@@ -184,12 +191,22 @@ const ChatPage: React.FC = () => {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-center">
-          <AlertTriangle className="mx-auto h-12 w-12 text-red-500" />
+          <AlertTriangle className="mx-auto h-12 w-12 text-yellow-500" />
           <h3 className="mt-2 text-lg font-medium text-gray-900">Erro ao carregar conversas</h3>
           <p className="mt-1 text-gray-500">{error}</p>
           <div className="mt-6">
             <button
-              onClick={() => loadConversations()}
+              onClick={() => {
+                console.log('Tentando novamente após erro:', error);
+                useChatStore.setState({ error: null });
+                if (instanceId) {
+                  console.log('Recarregando conversas para instância:', instanceId);
+                  loadConversations(instanceId);
+                } else {
+                  console.log('Nenhuma instância disponível para recarregar conversas');
+                  toast.error('Conecte uma instância do WhatsApp primeiro');
+                }
+              }}
               className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary hover:bg-primary-dark"
             >
               Tentar novamente
@@ -282,10 +299,22 @@ const ChatPage: React.FC = () => {
         <div className="p-4 border-b border-gray-200">
           <h2 className="text-lg font-medium text-gray-900">Conversas</h2>
           <p className="text-sm text-gray-500">
-            {settings?.is_active
-              ? `Agente ${settings.mode === 'ACTIVE' ? 'ativo' : 'passivo'}`
-              : 'Agente desativado'}
+            {instanceId 
+              ? 'Selecione uma conversa para iniciar' 
+              : 'Conecte seu WhatsApp para ver conversas'}
           </p>
+          {instanceId && (
+            <div className="mt-2 flex justify-between">
+              <p className="text-xs text-gray-400">ID da instância: {instanceId.substring(0, 8)}...</p>
+              <button
+                onClick={() => loadConversations(instanceId)}
+                className="text-xs text-blue-600 hover:text-blue-800"
+                title="Recarregar conversas"
+              >
+                Recarregar
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="flex-1 overflow-y-auto">
@@ -338,21 +367,114 @@ const ChatPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Área de chat */}
-      <div className="flex-1">
-        {selectedConversationId ? (
-          <ChatView
-            conversationId={selectedConversationId}
-            onBackClick={() => selectConversation('')}
-            isMobile={true}
-          />
+      {/* Área principal de chat */}
+      <div className="flex-1 flex flex-col">
+        {/* Layout móvel - mostrar lista de conversas OU chat */}
+        {window.innerWidth < 768 ? (
+          <>
+            {selectedConversationId ? (
+              <ChatView 
+                conversationId={selectedConversationId} 
+                onBackClick={() => selectConversation('')}
+                isMobile={true}
+              />
+            ) : (
+              <div className="md:hidden flex-1 overflow-y-auto">
+                <div className="p-4 border-b border-gray-200">
+                  <h2 className="text-lg font-medium text-gray-900">Conversas</h2>
+                  <p className="text-sm text-gray-500">
+                    {instanceId ? 'Selecione uma conversa para iniciar' : 'Conecte seu WhatsApp para ver conversas'}
+                  </p>
+                </div>
+                
+                {/* Lista de conversas mobile */}
+                <div className="flex-1 overflow-y-auto">
+                  {conversations.map((conversation: Conversation) => (
+                    <div
+                      key={conversation.id}
+                      onClick={() => selectConversation(conversation.id)}
+                      className={`p-3 flex items-center cursor-pointer hover:bg-gray-50 ${
+                        selectedConversationId === conversation.id ? 'bg-gray-100' : ''
+                      }`}
+                    >
+                      <div className="flex-shrink-0">
+                        {conversation.contact.profilePicUrl ? (
+                          <img
+                            src={conversation.contact.profilePicUrl}
+                            alt={conversation.contact.name || ''}
+                            className="h-10 w-10 rounded-full"
+                          />
+                        ) : (
+                          <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
+                            <UserCircle className="h-6 w-6 text-gray-500" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="ml-3 flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-sm font-medium text-gray-900 truncate">
+                            {conversation.contact.name || conversation.contact.phoneNumber}
+                          </h3>
+                          <span className="text-xs text-gray-500">
+                            {new Date(conversation.updatedAt).toLocaleTimeString('pt-BR', {
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </span>
+                        </div>
+                        <div className="flex items-center">
+                          <p className="text-sm text-gray-500 truncate">
+                            {conversation.lastMessage?.content || 'Nenhuma mensagem'}
+                          </p>
+                          {conversation.unreadCount > 0 && (
+                            <span className="ml-2 inline-flex items-center justify-center h-5 w-5 rounded-full bg-green-500 text-xs font-medium text-white">
+                              {conversation.unreadCount}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
         ) : (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-center">
-              <Phone className="mx-auto h-12 w-12 text-gray-400" />
-              <p className="mt-2 text-gray-500">Selecione uma conversa para começar</p>
-            </div>
-          </div>
+          /* Layout desktop - mostrar área de chat */
+          <>
+            {selectedConversationId ? (
+              <ChatView
+                conversationId={selectedConversationId}
+                onBackClick={() => selectConversation('')}
+                isMobile={false}
+              />
+            ) : (
+              <div className="flex-1 flex items-center justify-center bg-gray-50 p-8">
+                <div className="text-center max-w-md">
+                  <MessageSquare className="mx-auto h-12 w-12 text-gray-400" />
+                  <h3 className="mt-2 text-lg font-medium text-gray-900">Bem-vindo ao Chat</h3>
+                  <p className="mt-1 text-gray-500">
+                    {instanceId 
+                      ? 'Selecione uma conversa na barra lateral para começar a interagir'
+                      : 'Conecte seu WhatsApp para começar a ver suas conversas'
+                    }
+                  </p>
+                  
+                  {!instanceId && (
+                    <div className="mt-6">
+                      <button
+                        onClick={() => navigate('/settings')}
+                        className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                      >
+                        <Phone className="mr-2 h-4 w-4" />
+                        Conectar WhatsApp
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

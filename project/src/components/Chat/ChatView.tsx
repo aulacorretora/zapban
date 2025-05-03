@@ -45,9 +45,19 @@ const ChatView: React.FC<ChatViewProps> = ({
   const conversationMessages = messages[conversationId] || [];
   
   useEffect(() => {
-    if (conversationId) {
-      loadMessages(conversationId, instanceId);
-    }
+    if (!conversationId) return;
+    
+    console.log(`Carregando mensagens para a conversa ${conversationId}`);
+    loadMessages(conversationId, instanceId);
+    
+    const interval = setInterval(() => {
+      if (conversationId) {
+        console.log(`Atualizando mensagens para a conversa ${conversationId}`);
+        loadMessages(conversationId, instanceId);
+      }
+    }, 10000);
+    
+    return () => clearInterval(interval);
   }, [conversationId, loadMessages, instanceId]);
   
   useEffect(() => {
