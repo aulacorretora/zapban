@@ -434,17 +434,41 @@ export const getMessageAnalytics = async (userId: string, startDate: string, end
 export const getWhatsAppConversations = async (instanceId: string) => {
   try {
     const { data, error } = await supabase
-      .from('message')
-      .select('id, from_number, to_number, content, created_at, media_url, user_id')
+      .from('messages')
+      .select('id, from_number, to_number, content, created_at, media_url, user_id, contact_number, message, timestamp, direction, type')
       .eq('instance_id', instanceId)
       .order('created_at', { ascending: false });
     
-    if (error) throw error;
+    let messagesData = data;
+    let messagesError = error;
+
+    if ((!messagesData || messagesData.length === 0) && !messagesError?.message?.includes("does not exist")) {
+      console.log('Não foi possível encontrar mensagens na tabela "messages", tentando na tabela "message"');
+      const fallbackResult = await supabase
+        .from('message')
+        .select('id, from_number, to_number, content, created_at, media_url, user_id')
+        .eq('instance_id', instanceId)
+        .order('created_at', { ascending: false });
+      
+      messagesData = fallbackResult.data;
+      messagesError = fallbackResult.error;
+    }
+    
+    if (messagesError) throw messagesError;
+    
+    if (!messagesData || messagesData.length === 0) {
+      return [];
+    }
     
     const groupedByContact: Record<string, any[]> = {};
     
-    data?.forEach(message => {
-      const contactNumber = message.from_number || message.to_number;
+    messagesData.forEach(message => {
+      const contactNumber = message.contact_number || message.from_number || message.to_number;
+      
+      if (!contactNumber) {
+        console.warn("Mensagem sem número de contato:", message);
+        return;
+      }
       
       if (!groupedByContact[contactNumber]) {
         groupedByContact[contactNumber] = [];
@@ -467,15 +491,15 @@ export const getWhatsAppConversations = async (instanceId: string) => {
         },
         lastMessage: {
           id: `${lastMessage.id}`,
-          content: lastMessage.content,
-          timestamp: lastMessage.created_at,
-          isFromMe: false, // We'll default to false since we can't determine direction
+          content: lastMessage.content || lastMessage.message,
+          timestamp: lastMessage.created_at || lastMessage.timestamp,
+          isFromMe: lastMessage.direction === 'OUTBOUND' || false, // Check direction if available
           status: 'DELIVERED',
-          type: 'TEXT',
+          type: lastMessage.type || 'TEXT',
           mediaUrl: lastMessage.media_url || null,
         },
         unreadCount: 0, // Could be calculated based on read status
-        updatedAt: lastMessage.created_at,
+        updatedAt: lastMessage.created_at || lastMessage.timestamp,
       };
     });
     
@@ -490,26 +514,42 @@ export const getWhatsAppConversations = async (instanceId: string) => {
 export const getWhatsAppMessages = async (instanceId: string, contactNumber: string) => {
   try {
     const { data, error } = await supabase
-      .from('message')
-      .select('id, from_number, to_number, content, created_at, media_url, user_id')
+      .from('messages')
+      .select('*')
       .eq('instance_id', instanceId)
-      .or(`from_number.eq.${contactNumber},to_number.eq.${contactNumber}`)
+      .or(`from_number.eq.${contactNumber},to_number.eq.${contactNumber},contact_number.eq.${contactNumber}`)
       .order('created_at', { ascending: true });
     
-    if (error) throw error;
+    let messagesData = data;
+    let messagesError = error;
+
+    if ((!messagesData || messagesData.length === 0) && !messagesError?.message?.includes("does not exist")) {
+      console.log('Não foi possível encontrar mensagens na tabela "messages", tentando na tabela "message"');
+      const fallbackResult = await supabase
+        .from('message')
+        .select('id, from_number, to_number, content, created_at, media_url, user_id')
+        .eq('instance_id', instanceId)
+        .or(`from_number.eq.${contactNumber},to_number.eq.${contactNumber}`)
+        .order('created_at', { ascending: true });
+      
+      messagesData = fallbackResult.data;
+      messagesError = fallbackResult.error;
+    }
     
-    const messages = data?.map(message => ({
+    if (messagesError) throw messagesError;
+    
+    const messages = messagesData?.map(message => ({
       id: `${message.id}`,
       conversationId: contactNumber,
-      content: message.content,
-      timestamp: message.created_at,
-      isFromMe: message.to_number === contactNumber, // If to_number matches contactNumber, it's from me
+      content: message.content || message.message,
+      timestamp: message.created_at || message.timestamp,
+      isFromMe: message.direction === 'OUTBOUND' || message.to_number === contactNumber, 
       status: 'DELIVERED',
-      type: 'TEXT',
+      type: message.type || 'TEXT',
       mediaUrl: message.media_url || null,
     }));
     
-    return messages;
+    return messages || [];
   } catch (error) {
     console.error('Error fetching WhatsApp messages:', error);
     throw error;
