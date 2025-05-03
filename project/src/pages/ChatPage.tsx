@@ -38,7 +38,11 @@ const ChatPage: React.FC = () => {
         
         if (instanceToUse) {
           console.log('Inicializando agentStore com a instância:', instanceToUse.id);
-          initialize(instanceToUse.id);
+          try {
+            initialize(instanceToUse.id);
+          } catch (error) {
+            console.error('Erro ao inicializar agentStore:', error);
+          }
         } else {
           console.log('Nenhuma instância do WhatsApp encontrada para o usuário');
         }
@@ -53,64 +57,89 @@ const ChatPage: React.FC = () => {
   useEffect(() => {
     if (instanceId) {
       console.log(`useEffect: Usando instância ${instanceId} para carregar conversas`);
-      supabase.checkAuth().then((session) => {
-        const sessionToken = session?.access_token;
-        if (sessionToken) {
+      
+      const getSessionAndFetchConversations = async () => {
+        try {
+          const session = await supabase.checkAuth();
+          const sessionToken = session?.access_token;
+          
+          if (!sessionToken) {
+            console.error('Erro de autenticação: Sessão inválida ou expirada');
+            loadConversations(instanceId);
+            return;
+          }
+          
           console.log(`Buscando conversas para instance_id: ${instanceId}`);
-          fetch(`${supabaseUrl}/functions/v1/get-conversations?instance_id=${instanceId}`, {
-            headers: {
-              Authorization: `Bearer ${sessionToken}`
-            }
-          })
-            .then((res) => {
-              console.log(`Resposta da edge function: status ${res.status}`);
-              return res.json();
-            })
-            .then((data) => {
-              console.log(`Dados recebidos da edge function:`, data);
-              if (data && Array.isArray(data)) {
-                console.log(`Processando ${data.length} conversas da edge function`);
-                const conversations = data.map(item => ({
-                  id: item.number,
-                  contact: {
-                    id: item.number,
-                    name: item.name || item.number,
-                    phoneNumber: item.number,
-                    profilePicUrl: null,
-                    isOnline: false,
-                    lastSeen: null,
-                  },
-                  lastMessage: {
-                    id: `last-${item.number}`,
-                    conversationId: item.number,
-                    content: item.lastMessage,
-                    timestamp: item.timestamp,
-                    isFromMe: false,  // Isso pode ser atualizado se necessário
-                    status: 'DELIVERED'
-                  },
-                  unreadCount: 0,
-                  updatedAt: item.timestamp
-                }));
-                useChatStore.setState({ conversations, conversationsLoading: false });
-                console.log(`Conversas processadas e atualizadas no estado:`, conversations);
-              } else {
-                console.error('Formato de dados inválido:', data);
-                console.log('Fallback para loadConversations via supabase');
-                loadConversations(instanceId);
+          try {
+            const response = await fetch(`${supabaseUrl}/functions/v1/get-conversations?instance_id=${instanceId}`, {
+              headers: {
+                Authorization: `Bearer ${sessionToken}`
               }
-            })
-            .catch((err) => {
-              console.error('Erro ao carregar conversas do edge function:', err);
-              console.log('Fallback para loadConversations via supabase devido a erro');
-              loadConversations(instanceId);
             });
-        } else {
+            
+            console.log(`Resposta da edge function: status ${response.status}`);
+            
+            if (!response.ok) {
+              console.error(`Erro na resposta da API: ${response.status} ${response.statusText}`);
+              loadConversations(instanceId);
+              return;
+            }
+            
+            const data = await response.json();
+            console.log(`Dados recebidos da edge function:`, data);
+            
+            if (!data) {
+              console.error('Sem dados recebidos da edge function');
+              loadConversations(instanceId);
+              return;
+            }
+            
+            if (data.error) {
+              console.error('Erro retornado pela edge function:', data.error);
+              loadConversations(instanceId);
+              return;
+            }
+            
+            if (Array.isArray(data)) {
+              console.log(`Processando ${data.length} conversas da edge function`);
+              const conversations = data.map(item => ({
+                id: item.number,
+                contact: {
+                  id: item.number,
+                  name: item.name || item.number,
+                  phoneNumber: item.number,
+                  profilePicUrl: null,
+                  isOnline: false,
+                  lastSeen: null,
+                },
+                lastMessage: {
+                  id: `last-${item.number}`,
+                  conversationId: item.number,
+                  content: item.lastMessage,
+                  timestamp: item.timestamp,
+                  isFromMe: false,
+                  status: 'DELIVERED'
+                },
+                unreadCount: 0,
+                updatedAt: item.timestamp
+              }));
+              useChatStore.setState({ conversations, conversationsLoading: false });
+              console.log(`Conversas processadas e atualizadas no estado:`, conversations);
+            } else {
+              console.error('Formato de dados inválido:', data);
+              loadConversations(instanceId);
+            }
+          } catch (err) {
+            console.error('Erro ao carregar conversas do edge function:', err);
+            loadConversations(instanceId);
+          }
+        } catch (error) {
+          console.error('Erro de autenticação:', error);
           loadConversations(instanceId);
         }
-      }).catch(error => {
-        console.error('Erro de autenticação:', error);
-        loadConversations(instanceId);
-      });
+      };
+      
+      getSessionAndFetchConversations();
     }
   }, [instanceId, loadConversations]);
 
