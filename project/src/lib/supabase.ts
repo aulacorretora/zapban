@@ -485,15 +485,16 @@ export const getWhatsAppConversations = async (instanceId: string) => {
         messagesData = fallbackResult.data;
         messagesError = fallbackResult.error;
       } else if (!messagesData || messagesData.length === 0) {
-      console.log('Não foi possível encontrar mensagens na tabela "messages", tentando na tabela "message"');
-      const fallbackResult = await supabase
-        .from('message')
-        .select('id, from_number, to_number, content, created_at, media_url, user_id')
-        .eq('instance_id', instanceId)
-        .order('created_at', { ascending: false });
-      
-      messagesData = fallbackResult.data;
-      messagesError = fallbackResult.error;
+        console.log('Não foi possível encontrar mensagens na tabela "messages", tentando na tabela "message"');
+        const fallbackResult = await supabase
+          .from('message')
+          .select('id, from_number, to_number, content, created_at, media_url, user_id')
+          .eq('instance_id', instanceId)
+          .order('created_at', { ascending: false });
+        
+        messagesData = fallbackResult.data;
+        messagesError = fallbackResult.error;
+      }
     }
     
     if (messagesError) throw messagesError;
