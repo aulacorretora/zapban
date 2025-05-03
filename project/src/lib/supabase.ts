@@ -466,14 +466,25 @@ export const getWhatsAppConversations = async (instanceId: string) => {
     
     const { data, error } = await supabase
       .from('messages')
-      .select('id, from_number, to_number, content, created_at, media_url, user_id, contact_number, message, timestamp, direction, type')
+      .select('id, from_number, to_number, content, created_at, media_url, user_id, contact_number, message, timestamp, direction, media_type, type')
       .eq('instance_id', instanceId)
       .order('created_at', { ascending: false });
     
     let messagesData = data;
     let messagesError = error;
 
-    if ((!messagesData || messagesData.length === 0) && !messagesError?.message?.includes("does not exist")) {
+    if ((!messagesData || messagesData.length === 0) || messagesError) {
+      if (messagesError?.message?.includes("does not exist")) {
+        console.log('Erro com coluna inexistente, tentando consulta modificada');
+        const fallbackResult = await supabase
+          .from('messages')
+          .select('id, from_number, to_number, content, created_at, media_url, user_id, contact_number, message, timestamp, direction, media_type')
+          .eq('instance_id', instanceId)
+          .order('created_at', { ascending: false });
+        
+        messagesData = fallbackResult.data;
+        messagesError = fallbackResult.error;
+      } else if (!messagesData || messagesData.length === 0) {
       console.log('Não foi possível encontrar mensagens na tabela "messages", tentando na tabela "message"');
       const fallbackResult = await supabase
         .from('message')
@@ -526,7 +537,7 @@ export const getWhatsAppConversations = async (instanceId: string) => {
           timestamp: lastMessage.created_at || lastMessage.timestamp,
           isFromMe: lastMessage.direction === 'OUTBOUND' || false, // Check direction if available
           status: 'DELIVERED',
-          type: lastMessage.type || 'TEXT',
+          type: lastMessage.type || lastMessage.media_type || 'TEXT',
           mediaUrl: lastMessage.media_url || null,
         },
         unreadCount: 0, // Could be calculated based on read status
@@ -554,6 +565,19 @@ export const getWhatsAppMessages = async (instanceId: string, contactNumber: str
     let messagesData = data;
     let messagesError = error;
 
+    if (messagesError?.message?.includes("does not exist")) {
+      console.log('Erro com coluna inexistente em getWhatsAppMessages, tentando consulta modificada');
+      const fallbackResult = await supabase
+        .from('messages')
+        .select('id, from_number, to_number, content, created_at, media_url, user_id, contact_number, message, timestamp, direction, media_type')
+        .eq('instance_id', instanceId)
+        .or(`from_number.eq.${contactNumber},to_number.eq.${contactNumber},contact_number.eq.${contactNumber}`)
+        .order('created_at', { ascending: true });
+      
+      messagesData = fallbackResult.data;
+      messagesError = fallbackResult.error;
+    }
+    
     if ((!messagesData || messagesData.length === 0) && !messagesError?.message?.includes("does not exist")) {
       console.log('Não foi possível encontrar mensagens na tabela "messages", tentando na tabela "message"');
       const fallbackResult = await supabase
@@ -576,7 +600,7 @@ export const getWhatsAppMessages = async (instanceId: string, contactNumber: str
       timestamp: message.created_at || message.timestamp,
       isFromMe: message.direction === 'OUTBOUND' || message.to_number === contactNumber, 
       status: 'DELIVERED',
-      type: message.type || 'TEXT',
+      type: message.type || message.media_type || 'TEXT',
       mediaUrl: message.media_url || null,
     }));
     
@@ -630,6 +654,26 @@ export const sendWhatsAppMessage = async (instanceId: string, contactNumber: str
       .select()
       .single();
 
+    if (error?.message?.includes("does not exist")) {
+      console.log('Erro com coluna inexistente em sendWhatsAppMessage, tentando inserção sem a coluna type');
+      const fallbackResult = await supabase
+        .from('messages')
+        .insert({
+          instance_id: instanceId,
+          contact_number: contactNumber,
+          content: content,
+          direction: 'OUTBOUND',
+          media_type: mediaType || 'TEXT',
+          media_url: mediaUrl || null,
+          created_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+      
+      if (fallbackResult.error) throw fallbackResult.error;
+      return fallbackResult.data;
+    }
+    
     if (error) throw error;
     
     return data;
