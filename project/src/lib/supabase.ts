@@ -434,8 +434,8 @@ export const getMessageAnalytics = async (userId: string, startDate: string, end
 export const getWhatsAppConversations = async (instanceId: string) => {
   try {
     const { data, error } = await supabase
-      .from('messages')
-      .select('id, from_number, to_number, content, created_at, media_url, user_id, contact_number, message, timestamp, direction, type')
+      .from('message')
+      .select('id, from_number, to_number, content, created_at, media_url, user_id')
       .eq('instance_id', instanceId)
       .order('created_at', { ascending: false });
     
@@ -443,10 +443,10 @@ export const getWhatsAppConversations = async (instanceId: string) => {
     let messagesError = error;
 
     if ((!messagesData || messagesData.length === 0) && !messagesError?.message?.includes("does not exist")) {
-      console.log('Não foi possível encontrar mensagens na tabela "messages", tentando na tabela "message"');
+      console.log('Não foi possível encontrar mensagens na tabela "message", tentando na tabela "messages"');
       const fallbackResult = await supabase
-        .from('message')
-        .select('id, from_number, to_number, content, created_at, media_url, user_id')
+        .from('messages')
+        .select('id, from_number, to_number, content, created_at, media_url, user_id, contact_number, message, timestamp, direction, type')
         .eq('instance_id', instanceId)
         .order('created_at', { ascending: false });
       
@@ -463,7 +463,7 @@ export const getWhatsAppConversations = async (instanceId: string) => {
     const groupedByContact: Record<string, any[]> = {};
     
     messagesData.forEach(message => {
-      const contactNumber = message.contact_number || message.from_number || message.to_number;
+      const contactNumber = message.from_number || message.to_number;
       
       if (!contactNumber) {
         console.warn("Mensagem sem número de contato:", message);
@@ -514,22 +514,22 @@ export const getWhatsAppConversations = async (instanceId: string) => {
 export const getWhatsAppMessages = async (instanceId: string, contactNumber: string) => {
   try {
     const { data, error } = await supabase
-      .from('messages')
-      .select('*')
+      .from('message')
+      .select('id, from_number, to_number, content, created_at, media_url, user_id')
       .eq('instance_id', instanceId)
-      .or(`from_number.eq.${contactNumber},to_number.eq.${contactNumber},contact_number.eq.${contactNumber}`)
+      .or(`from_number.eq.${contactNumber},to_number.eq.${contactNumber}`)
       .order('created_at', { ascending: true });
     
     let messagesData = data;
     let messagesError = error;
 
     if ((!messagesData || messagesData.length === 0) && !messagesError?.message?.includes("does not exist")) {
-      console.log('Não foi possível encontrar mensagens na tabela "messages", tentando na tabela "message"');
+      console.log('Não foi possível encontrar mensagens na tabela "message", tentando na tabela "messages"');
       const fallbackResult = await supabase
-        .from('message')
-        .select('id, from_number, to_number, content, created_at, media_url, user_id')
+        .from('messages')
+        .select('*')
         .eq('instance_id', instanceId)
-        .or(`from_number.eq.${contactNumber},to_number.eq.${contactNumber}`)
+        .or(`from_number.eq.${contactNumber},to_number.eq.${contactNumber},contact_number.eq.${contactNumber}`)
         .order('created_at', { ascending: true });
       
       messagesData = fallbackResult.data;
@@ -541,11 +541,11 @@ export const getWhatsAppMessages = async (instanceId: string, contactNumber: str
     const messages = messagesData?.map(message => ({
       id: `${message.id}`,
       conversationId: contactNumber,
-      content: message.content || message.message,
-      timestamp: message.created_at || message.timestamp,
-      isFromMe: message.direction === 'OUTBOUND' || message.to_number === contactNumber, 
+      content: message.content,
+      timestamp: message.created_at,
+      isFromMe: message.to_number === contactNumber, 
       status: 'DELIVERED',
-      type: message.type || 'TEXT',
+      type: 'TEXT',
       mediaUrl: message.media_url || null,
     }));
     

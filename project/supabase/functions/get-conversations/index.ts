@@ -99,29 +99,29 @@ serve(async (req: Request) => {
     let error;
     
     try {
-      console.log("Querying 'messages' table first for instance_id:", instanceId);
+      console.log("Querying 'message' table for instance_id:", instanceId);
       const result = await supabaseClient
-        .from('messages')
-        .select('*')
+        .from('message')
+        .select('id, from_number, to_number, content, created_at, media_url, user_id')
         .eq('instance_id', instanceId)
         .order('created_at', { ascending: false });
       
       data = result.data;
       error = result.error;
-      console.log("Query result from 'messages':", data ? `${data.length} messages found` : 'No data', error ? `Error: ${error.message}` : 'No error');
+      console.log("Query result from 'message':", data ? `${data.length} messages found` : 'No data', error ? `Error: ${error.message}` : 'No error');
       
       if ((!data || data.length === 0 || error) && !error?.message?.includes("does not exist")) {
-        console.log("No data in 'messages' table, trying 'message' table");
+        console.log("No data in 'message' table, trying 'messages' table");
         const fallbackResult = await supabaseClient
-          .from('message')
-          .select('id, from_number, to_number, content, created_at, media_url, user_id')
+          .from('messages')
+          .select('*')
           .eq('instance_id', instanceId)
           .order('created_at', { ascending: false });
         
         if (fallbackResult.data && fallbackResult.data.length > 0) {
           data = fallbackResult.data;
           error = fallbackResult.error;
-          console.log("Query result from 'message':", data ? `${data.length} messages found` : 'No data', error ? `Error: ${error.message}` : 'No error');
+          console.log("Query result from 'messages':", data ? `${data.length} messages found` : 'No data', error ? `Error: ${error.message}` : 'No error');
         }
       }
     } catch (queryError) {
