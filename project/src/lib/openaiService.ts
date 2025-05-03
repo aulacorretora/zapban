@@ -52,6 +52,29 @@ export interface AgentTrigger {
 
 export const getAgentSettings = async (instanceId: string): Promise<AgentSettings | null> => {
   try {
+    const { error: checkError } = await supabase
+      .from('agent_settings')
+      .select('id')
+      .limit(1);
+    
+    if (checkError && (
+        checkError.message?.includes('column "instance_id" does not exist') || 
+        checkError.message?.includes('relation "agent_settings" does not exist')
+      )) {
+      console.log('Tabela agent_settings ou coluna instance_id não existe, retornando configurações padrão');
+      return {
+        id: 'default',
+        user_id: 'default',
+        instance_id: instanceId,
+        is_active: false,
+        mode: 'PASSIVE',
+        openai_model: 'gpt-4-turbo',
+        temperature: 0.7,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+    }
+    
     const { data, error } = await supabase
       .from('agent_settings')
       .select('*')
@@ -68,7 +91,17 @@ export const getAgentSettings = async (instanceId: string): Promise<AgentSetting
     return data as AgentSettings;
   } catch (error) {
     console.error('Error fetching agent settings:', error);
-    return null;
+    return {
+      id: 'default',
+      user_id: 'default',
+      instance_id: instanceId,
+      is_active: false,
+      mode: 'PASSIVE',
+      openai_model: 'gpt-4-turbo',
+      temperature: 0.7,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
   }
 };
 
@@ -110,6 +143,19 @@ export const saveAgentSettings = async (
 
 export const getAgentTriggers = async (instanceId: string): Promise<AgentTrigger[]> => {
   try {
+    const { error: checkError } = await supabase
+      .from('agent_triggers')
+      .select('id')
+      .limit(1);
+    
+    if (checkError && (
+        checkError.message?.includes('column "instance_id" does not exist') || 
+        checkError.message?.includes('relation "agent_triggers" does not exist')
+      )) {
+      console.log('Tabela agent_triggers ou coluna instance_id não existe, retornando array vazio');
+      return [];
+    }
+    
     const { data, error } = await supabase
       .from('agent_triggers')
       .select('*')
