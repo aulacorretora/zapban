@@ -203,15 +203,19 @@ export const updateInstanceStatus = async (instanceId: string, status: string) =
       .from('whatsapp_instances')
       .update({ status })
       .eq('id', instanceId)
-      .select()
-      .single();
+      .select();
 
     if (error) {
       console.error('Error updating instance status in Supabase:', error);
       return { id: instanceId, status };
     }
+    
+    if (!data || (Array.isArray(data) && data.length === 0)) {
+      console.warn(`No WhatsApp instance found with ID: ${instanceId}`);
+      return { id: instanceId, status };
+    }
 
-    return data;
+    return Array.isArray(data) ? data[0] : data;
   } catch (error) {
     console.error('Error updating instance status:', error);
     return { id: instanceId, status };
@@ -307,15 +311,19 @@ export const getInstanceStatus = async (instanceId: string) => {
     const { data, error } = await supabase
       .from('whatsapp_instances')
       .select('status, connection_data')
-      .eq('id', instanceId)
-      .single();
+      .eq('id', instanceId);
 
     if (error) {
       console.error('Error getting instance status from Supabase:', error);
       return { status: 'DISCONNECTED', connection_data: null };
     }
-
-    return data;
+    
+    if (!data || data.length === 0) {
+      console.warn(`No WhatsApp instance found with ID: ${instanceId}`);
+      return { status: 'DISCONNECTED', connection_data: null };
+    }
+    
+    return data[0];
   } catch (error) {
     console.error('Error getting instance status:', error);
     return { status: 'DISCONNECTED', connection_data: null };
@@ -329,15 +337,19 @@ export const updateInstanceName = async (instanceId: string, name: string) => {
       .from('whatsapp_instances')
       .update({ name })
       .eq('id', instanceId)
-      .select()
-      .single();
+      .select();
 
     if (error) {
       console.error('Error updating instance name:', error);
       throw error;
     }
+    
+    if (!data || (Array.isArray(data) && data.length === 0)) {
+      console.warn(`No WhatsApp instance found with ID: ${instanceId}`);
+      return { id: instanceId, name };
+    }
 
-    return data;
+    return Array.isArray(data) ? data[0] : data;
   } catch (error) {
     console.error('Error updating instance name:', error);
     throw error;
@@ -433,6 +445,25 @@ export const getMessageAnalytics = async (userId: string, startDate: string, end
 // Get WhatsApp conversations
 export const getWhatsAppConversations = async (instanceId: string) => {
   try {
+    console.log(`Fetching conversations for instance: ${instanceId}`);
+    
+    try {
+      const { data: instanceData, error: instanceError } = await supabase
+        .from('whatsapp_instances')
+        .select('id, status')
+        .eq('id', instanceId);
+      
+      if (instanceError) {
+        console.error('Error checking WhatsApp instance:', instanceError);
+      } else if (!instanceData || instanceData.length === 0) {
+        console.warn(`WhatsApp instance with ID ${instanceId} not found in database`);
+      } else {
+        console.log(`Found WhatsApp instance: ${instanceData[0].id} with status: ${instanceData[0].status}`);
+      }
+    } catch (instanceCheckError) {
+      console.error('Error when checking WhatsApp instance:', instanceCheckError);
+    }
+    
     const { data, error } = await supabase
       .from('messages')
       .select('id, from_number, to_number, content, created_at, media_url, user_id, contact_number, message, timestamp, direction, type')

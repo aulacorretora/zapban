@@ -33,23 +33,33 @@ const ChatPage: React.FC = () => {
         const instances = await supabase.getWhatsappInstances(user.id);
         console.log('Instâncias encontradas:', instances);
         
+        if (!instances || instances.length === 0) {
+          console.log('Nenhuma instância do WhatsApp encontrada para o usuário');
+          toast.error('Nenhuma instância do WhatsApp encontrada');
+          return;
+        }
+        
         const connectedInstance = instances.find((instance) => instance.status === 'CONNECTED');
-        const instanceToUse = connectedInstance || (instances.length > 0 ? instances[0] : null);
+        const instanceToUse = connectedInstance || instances[0];
         
         if (instanceToUse) {
           console.log('Inicializando agentStore com a instância:', instanceToUse.id);
           try {
             useAgentStore.setState({ instanceId: instanceToUse.id });
+            useChatStore.setState({ error: null });
             initialize(instanceToUse.id);
             console.log('agentStore inicializado com sucesso, instanceId definido:', instanceToUse.id);
+            
+            // Immediately load conversations after setting the instanceId
+            loadConversations(instanceToUse.id);
           } catch (error) {
             console.error('Erro ao inicializar agentStore:', error);
+            toast.error('Erro ao inicializar a conexão com WhatsApp');
           }
-        } else {
-          console.log('Nenhuma instância do WhatsApp encontrada para o usuário');
         }
       } catch (error) {
         console.error('Erro ao buscar instâncias do WhatsApp:', error);
+        toast.error('Erro ao buscar instâncias do WhatsApp');
       }
     };
 
@@ -307,7 +317,11 @@ const ChatPage: React.FC = () => {
             <div className="mt-2 flex justify-between">
               <p className="text-xs text-gray-400">ID da instância: {instanceId.substring(0, 8)}...</p>
               <button
-                onClick={() => loadConversations(instanceId)}
+                onClick={() => {
+                  console.log('Forçando recarregamento de conversas para instância:', instanceId);
+                  loadConversations(instanceId);
+                  toast.success('Recarregando conversas...');
+                }}
                 className="text-xs text-blue-600 hover:text-blue-800"
                 title="Recarregar conversas"
               >
