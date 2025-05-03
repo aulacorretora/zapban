@@ -32,7 +32,7 @@ const ChatPage: React.FC = () => {
 
   useEffect(() => {
     if (instanceId) {
-á      supabase.checkAuth().then((session) => {
+      supabase.checkAuth().then((session) => {
         const sessionToken = session?.access_token;
         if (sessionToken) {
           fetch(`${supabaseUrl}/functions/v1/get-conversations?instance_id=${instanceId}`, {
