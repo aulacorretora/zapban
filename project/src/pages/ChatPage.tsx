@@ -15,25 +15,25 @@ const ChatPage: React.FC = () => {
   const { user } = useUserStore();
   const navigate = useNavigate();
   const { initialize, settings, instanceId } = useAgentStore();
-  const { 
-    conversations, 
-    conversationsLoading, 
-    error, 
-    loadConversations, 
-    selectedConversationId, 
-    selectConversation 
+  const {
+    conversations,
+    conversationsLoading,
+    error,
+    loadConversations,
+    selectedConversationId,
+    selectConversation
   } = useChatStore();
-  
+
   useEffect(() => {
     if (!user) return;
-    
+
     initialize(user.id);
   }, [user, initialize]);
-  
+
   useEffect(() => {
     if (instanceId) {
-      supabase.checkAuth().then(({ data }) => {
-        const sessionToken = data.session?.access_token;
+á      supabase.checkAuth().then((session) => {
+        const sessionToken = session?.access_token;
         if (sessionToken) {
           fetch(`${supabaseUrl}/functions/v1/get-conversations?instance_id=${instanceId}`, {
             headers: {
@@ -42,46 +42,54 @@ const ChatPage: React.FC = () => {
           })
             .then((res) => res.json())
             .then((data) => {
-              const conversations = data.map(item => ({
-                id: item.number,
-                contact: {
+              if (data && Array.isArray(data)) {
+                const conversations = data.map(item => ({
                   id: item.number,
-                  name: item.name,
-                  phoneNumber: item.number,
-                  profilePicUrl: null,
-                  isOnline: false,
-                  lastSeen: null,
-                },
-                lastMessage: {
-                  id: `last-${item.number}`,
-                  conversationId: item.number,
-                  content: item.lastMessage,
-                  timestamp: item.timestamp,
-                  isFromMe: false,  // Isso pode ser atualizado se necessário
-                  status: 'DELIVERED'
-                },
-                unreadCount: 0,
-                updatedAt: item.timestamp
-              }));
-              useChatStore.setState({ conversations, conversationsLoading: false });
+                  contact: {
+                    id: item.number,
+                    name: item.name || item.number,
+                    phoneNumber: item.number,
+                    profilePicUrl: null,
+                    isOnline: false,
+                    lastSeen: null,
+                  },
+                  lastMessage: {
+                    id: `last-${item.number}`,
+                    conversationId: item.number,
+                    content: item.lastMessage,
+                    timestamp: item.timestamp,
+                    isFromMe: false,  // Isso pode ser atualizado se necessário
+                    status: 'DELIVERED'
+                  },
+                  unreadCount: 0,
+                  updatedAt: item.timestamp
+                }));
+                useChatStore.setState({ conversations, conversationsLoading: false });
+              } else {
+                console.error('Formato de dados inválido:', data);
+                loadConversations(instanceId);
+              }
             })
             .catch((err) => {
-              console.error(err);
+              console.error('Erro ao carregar conversas do edge function:', err);
               loadConversations(instanceId);
             });
         } else {
           loadConversations(instanceId);
         }
+      }).catch(error => {
+        console.error('Erro de autenticação:', error);
+        loadConversations(instanceId);
       });
     }
   }, [instanceId, loadConversations]);
-  
+
   useEffect(() => {
     if (conversations.length > 0 && !selectedConversationId) {
       selectConversation(conversations[0].id);
     }
   }, [conversations, selectedConversationId, selectConversation]);
-  
+
   if (!user) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -101,7 +109,7 @@ const ChatPage: React.FC = () => {
       </div>
     );
   }
-  
+
   if (conversationsLoading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -112,7 +120,7 @@ const ChatPage: React.FC = () => {
       </div>
     );
   }
-  
+
   if (error) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -132,7 +140,7 @@ const ChatPage: React.FC = () => {
       </div>
     );
   }
-  
+
   if (conversations.length === 0) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -144,7 +152,7 @@ const ChatPage: React.FC = () => {
       </div>
     );
   }
-  
+
   return (
     <div className="h-full flex">
       {/* Lista de conversas (visível apenas em telas maiores) */}
@@ -152,12 +160,12 @@ const ChatPage: React.FC = () => {
         <div className="p-4 border-b border-gray-200">
           <h2 className="text-lg font-medium text-gray-900">Conversas</h2>
           <p className="text-sm text-gray-500">
-            {settings?.is_active 
+            {settings?.is_active
               ? `Agente ${settings.mode === 'ACTIVE' ? 'ativo' : 'passivo'}`
               : 'Agente desativado'}
           </p>
         </div>
-        
+
         <div className="flex-1 overflow-y-auto">
           {conversations.map((conversation: Conversation) => (
             <div
@@ -207,11 +215,11 @@ const ChatPage: React.FC = () => {
           ))}
         </div>
       </div>
-      
+
       {/* Área de chat */}
       <div className="flex-1">
         {selectedConversationId ? (
-          <ChatView 
+          <ChatView
             conversationId={selectedConversationId}
             onBackClick={() => selectConversation('')}
             isMobile={true}
