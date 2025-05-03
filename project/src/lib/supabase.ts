@@ -434,8 +434,8 @@ export const getMessageAnalytics = async (userId: string, startDate: string, end
 export const getWhatsAppConversations = async (instanceId: string) => {
   try {
     const { data, error } = await supabase
-      .from('messages')
-      .select('contact_number, content, direction, created_at, type, media_url, id')
+      .from('message')
+      .select('id, from_number, to_number, content, created_at, media_url, user_id')
       .eq('instance_id', instanceId)
       .order('created_at', { ascending: false });
     
@@ -444,10 +444,12 @@ export const getWhatsAppConversations = async (instanceId: string) => {
     const groupedByContact: Record<string, any[]> = {};
     
     data?.forEach(message => {
-      if (!groupedByContact[message.contact_number]) {
-        groupedByContact[message.contact_number] = [];
+      const contactNumber = message.from_number || message.to_number;
+      
+      if (!groupedByContact[contactNumber]) {
+        groupedByContact[contactNumber] = [];
       }
-      groupedByContact[message.contact_number].push(message);
+      groupedByContact[contactNumber].push(message);
     });
     
     const conversations = Object.entries(groupedByContact).map(([phoneNumber, messages]) => {
@@ -467,13 +469,13 @@ export const getWhatsAppConversations = async (instanceId: string) => {
           id: `${lastMessage.id}`,
           content: lastMessage.content,
           timestamp: lastMessage.created_at,
-          isFromMe: lastMessage.direction === 'OUTBOUND',
+          isFromMe: false, // We'll default to false since we can't determine direction
           status: 'DELIVERED',
-          type: lastMessage.type || 'TEXT',
+          type: 'TEXT',
           mediaUrl: lastMessage.media_url || null,
         },
         unreadCount: 0, // Could be calculated based on read status
-        timestamp: lastMessage.created_at,
+        updatedAt: lastMessage.created_at,
       };
     });
     
@@ -488,10 +490,10 @@ export const getWhatsAppConversations = async (instanceId: string) => {
 export const getWhatsAppMessages = async (instanceId: string, contactNumber: string) => {
   try {
     const { data, error } = await supabase
-      .from('messages')
-      .select('*')
+      .from('message')
+      .select('id, from_number, to_number, content, created_at, media_url, user_id')
       .eq('instance_id', instanceId)
-      .eq('contact_number', contactNumber)
+      .or(`from_number.eq.${contactNumber},to_number.eq.${contactNumber}`)
       .order('created_at', { ascending: true });
     
     if (error) throw error;
@@ -501,9 +503,9 @@ export const getWhatsAppMessages = async (instanceId: string, contactNumber: str
       conversationId: contactNumber,
       content: message.content,
       timestamp: message.created_at,
-      isFromMe: message.direction === 'OUTBOUND',
+      isFromMe: message.to_number === contactNumber, // If to_number matches contactNumber, it's from me
       status: 'DELIVERED',
-      type: message.type || 'TEXT',
+      type: 'TEXT',
       mediaUrl: message.media_url || null,
     }));
     
