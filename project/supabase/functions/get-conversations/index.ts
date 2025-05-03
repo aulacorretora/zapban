@@ -15,6 +15,8 @@ serve(async (req: Request) => {
     });
   }
 
+  let instanceId: string | null = null;
+  
   try {
     const authHeader = req.headers.get('Authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -24,7 +26,7 @@ serve(async (req: Request) => {
     const token = authHeader.split(' ')[1];
 
     const url = new URL(req.url);
-    const instanceId = url.searchParams.get('instance_id');
+    instanceId = url.searchParams.get('instance_id');
     
     if (!instanceId) {
       throw new Error('Parâmetro instance_id é obrigatório');
@@ -43,8 +45,8 @@ serve(async (req: Request) => {
     );
 
     const { data, error } = await supabaseClient
-      .from('messages')
-      .select('contact_number, content, direction, created_at, type, media_url, id')
+      .from('message')
+      .select('id, from_number, to_number, content, created_at, media_url, user_id')
       .eq('instance_id', instanceId)
       .order('created_at', { ascending: false });
     
@@ -53,10 +55,12 @@ serve(async (req: Request) => {
     const groupedByContact: Record<string, any[]> = {};
     
     data?.forEach(message => {
-      if (!groupedByContact[message.contact_number]) {
-        groupedByContact[message.contact_number] = [];
+      const contactNumber = message.from_number || message.to_number;
+      
+      if (!groupedByContact[contactNumber]) {
+        groupedByContact[contactNumber] = [];
       }
-      groupedByContact[message.contact_number].push(message);
+      groupedByContact[contactNumber].push(message);
     });
     
     const conversations = Object.entries(groupedByContact).map(([phoneNumber, messages]) => {
@@ -84,6 +88,10 @@ serve(async (req: Request) => {
     return new Response(
       JSON.stringify({
         error: error.message,
+        details: error.details || null,
+        hint: error.hint || null,
+        table: 'message', // Include information about which table was queried
+        query_params: { instance_id: instanceId }
       }),
       {
         status: 400,
