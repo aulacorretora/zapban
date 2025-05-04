@@ -226,7 +226,7 @@ serve(async (req: Request) => {
           timestamp: lastMessage.created_at || lastMessage.timestamp,
           isFromMe: lastMessage.direction === 'OUTBOUND' || false, // Check direction if available
           status: 'DELIVERED',
-          type: lastMessage.type || lastMessage.media_type || 'TEXT',
+          type: lastMessage.media_type || 'TEXT',
           mediaUrl: lastMessage.media_url || null,
         },
         unreadCount: 0, // Could be calculated based on read status
