@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUserStore } from '../stores/userStore';
 import { useAgentStore } from '../stores/agentStore';
@@ -14,7 +14,7 @@ const supabaseUrl = 'https://mopdlsgtfddzqjjerecz.supabase.co';
 const ChatPage: React.FC = () => {
   const { user } = useUserStore();
   const navigate = useNavigate();
-  const { initialize, settings, instanceId } = useAgentStore();
+  const { initialize, instanceId } = useAgentStore();
   const {
     conversations,
     conversationsLoading,
@@ -64,7 +64,7 @@ const ChatPage: React.FC = () => {
     };
 
     fetchWhatsAppInstances();
-  }, [user, initialize]);
+  }, [user, initialize, loadConversations]);
 
   useEffect(() => {
     if (instanceId) {
@@ -114,29 +114,8 @@ const ChatPage: React.FC = () => {
             
             if (Array.isArray(data)) {
               console.log(`Processando ${data.length} conversas da edge function`);
-              const conversations = data.map(item => ({
-                id: item.number,
-                contact: {
-                  id: item.number,
-                  name: item.name || item.number,
-                  phoneNumber: item.number,
-                  profilePicUrl: null,
-                  isOnline: false,
-                  lastSeen: null,
-                },
-                lastMessage: {
-                  id: `last-${item.number}`,
-                  conversationId: item.number,
-                  content: item.lastMessage,
-                  timestamp: item.timestamp,
-                  isFromMe: false,
-                  status: 'DELIVERED'
-                },
-                unreadCount: 0,
-                updatedAt: item.timestamp
-              }));
-              useChatStore.setState({ conversations, conversationsLoading: false });
-              console.log(`Conversas processadas e atualizadas no estado:`, conversations);
+              useChatStore.setState({ conversations: data, conversationsLoading: false });
+              console.log(`Conversas processadas e atualizadas no estado:`, data);
             } else {
               console.error('Formato de dados inválido:', data);
               loadConversations(instanceId);
@@ -166,6 +145,26 @@ const ChatPage: React.FC = () => {
     }
   }, [conversations, selectedConversationId, selectConversation]);
 
+  useEffect(() => {
+    console.log(`Configurando polling para atualizações de conversas da instância ${instanceId}`);
+    
+    let pollInterval: NodeJS.Timeout | null = null;
+    
+    if (instanceId) {
+      pollInterval = setInterval(() => {
+        console.log(`Polling: Atualizando conversas para instância ${instanceId}`);
+        loadConversations(instanceId);
+      }, 10000); // Polling a cada 10 segundos
+    }
+    
+    return () => {
+      if (pollInterval) {
+        console.log('Limpando intervalo de polling');
+        clearInterval(pollInterval);
+      }
+    };
+  }, [instanceId, loadConversations]);
+
   if (!user) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -186,6 +185,8 @@ const ChatPage: React.FC = () => {
     );
   }
 
+
+
   if (conversationsLoading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -204,8 +205,8 @@ const ChatPage: React.FC = () => {
           <AlertTriangle className="mx-auto h-12 w-12 text-yellow-500" />
           <h3 className="mt-2 text-lg font-medium text-gray-900">Erro ao carregar conversas</h3>
           <p className="mt-1 text-gray-500">
-            {typeof error === 'object' && error.message 
-              ? error.message 
+            {typeof error === 'object' && error && 'message' in error 
+              ? (error as {message: string}).message 
               : String(error)}
           </p>
           <p className="mt-1 text-gray-400 text-sm">
@@ -290,7 +291,7 @@ const ChatPage: React.FC = () => {
                     
                     if (conversations && conversations.length > 0) {
                       console.log('Debug: Atualizando estado com conversas encontradas');
-                      useChatStore.setState({ conversations, conversationsLoading: false });
+                      useChatStore.setState({ conversations: conversations as unknown as Conversation[], conversationsLoading: false });
                       toast.success(`${conversations.length} conversas carregadas com sucesso!`);
                     } else {
                       console.log('Debug: Nenhuma conversa encontrada para a instância', instanceId);
