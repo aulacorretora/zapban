@@ -95,9 +95,36 @@ const HumanizedAgent: React.FC = () => {
   }, [user]);
   
   useEffect(() => {
-    if (selectedInstanceId) {
-      initialize(selectedInstanceId);
-    }
+    const initAgent = async () => {
+      try {
+        console.log('Inicializando agente...');
+        
+        const specificInstanceId = '160b6ea2-1cc4-48c3-ba9c-1b0ffaa8faf3';
+        
+        if (selectedInstanceId) {
+          console.log(`Inicializando agente com instância selecionada: ${selectedInstanceId}`);
+          await initialize(selectedInstanceId);
+        } else {
+          console.log(`Usando ID da instância específica: ${specificInstanceId}`);
+          await initialize(specificInstanceId);
+        }
+        
+        console.log('Agente inicializado com sucesso');
+      } catch (error) {
+        console.error('Erro ao inicializar agente:', error);
+        
+        try {
+          const specificInstanceId = '160b6ea2-1cc4-48c3-ba9c-1b0ffaa8faf3';
+          console.log(`Tentando novamente com instância específica: ${specificInstanceId}`);
+          await initialize(specificInstanceId);
+          console.log('Agente inicializado com sucesso na segunda tentativa');
+        } catch (retryError) {
+          console.error('Erro ao inicializar agente na segunda tentativa:', retryError);
+        }
+      }
+    };
+    
+    initAgent();
   }, [selectedInstanceId, initialize]);
   
   useEffect(() => {

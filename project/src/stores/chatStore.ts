@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import * as supabase from '../lib/supabase';
-import { Contact, Conversation, Message, MessageStatus, MessageType } from '../components/Chat/types';
+import { Conversation, Message, MessageStatus, MessageType } from '../components/Chat/types';
 
 type Messages = Record<string, Message[]>;
 
@@ -27,7 +27,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   error: null,
   selectedConversationId: null,
   
-  loadConversations: async (instanceId?: string) => {
+  loadConversations: async (instanceId?: string): Promise<Conversation[]> => {
     if (!instanceId) {
       console.log('loadConversations: Nenhuma instância do WhatsApp conectada');
       set({ error: "Nenhuma instância do WhatsApp conectada", conversationsLoading: false });
@@ -42,8 +42,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const conversations = await supabase.getWhatsAppConversations(instanceId);
       
       console.log(`loadConversations: ${conversations.length} conversas encontradas`, conversations);
-      set({ conversations, conversationsLoading: false });
-      return conversations;
+      set({ conversations: conversations as unknown as Conversation[], conversationsLoading: false });
+      return conversations as unknown as Conversation[];
     } catch (error) {
       console.error('Erro ao carregar conversas:', error);
       
@@ -58,10 +58,27 @@ export const useChatStore = create<ChatState>((set, get) => ({
   
   selectConversation: (id: string) => {
     set({ selectedConversationId: id });
-    get().loadMessages(id);
+    const instanceId = (async () => {
+      try {
+        return (await import('./agentStore')).useAgentStore.getState().instanceId;
+      } catch (error) {
+        console.error('Erro ao obter instanceId do agentStore:', error);
+        return undefined;
+      }
+    })();
+    
+    Promise.resolve(instanceId).then(resolvedInstanceId => {
+      if (resolvedInstanceId) {
+        console.log(`selectConversation: Carregando mensagens para conversa ${id} com instância ${resolvedInstanceId}`);
+        get().loadMessages(id, resolvedInstanceId);
+      } else {
+        console.warn('selectConversation: Nenhuma instância disponível para carregar mensagens');
+        get().loadMessages(id);
+      }
+    });
   },
   
-  loadMessages: async (conversationId: string, instanceId?: string) => {
+  loadMessages: async (conversationId: string, instanceId?: string): Promise<Message[]> => {
     if (!conversationId) return [];
     
     set(state => ({ 
@@ -81,19 +98,39 @@ export const useChatStore = create<ChatState>((set, get) => ({
         return cachedMessages;
       }
       
-      if (instanceId) {
+      let resolvedInstanceId = instanceId;
+      if (!resolvedInstanceId) {
         try {
-          const messages = await supabase.getWhatsAppMessages(instanceId, conversationId);
+          const agentInstanceId = (await import('./agentStore')).useAgentStore.getState().instanceId;
+          if (agentInstanceId) {
+            resolvedInstanceId = agentInstanceId;
+            console.log(`loadMessages: Obteve instanceId do agentStore: ${resolvedInstanceId}`);
+          }
+        } catch (error) {
+          console.error('Erro ao obter instanceId do agentStore:', error);
+        }
+      }
+      
+      const specificInstanceId = '160b6ea2-1cc4-48c3-ba9c-1b0ffaa8faf3';
+      if (!resolvedInstanceId) {
+        console.log(`loadMessages: Usando instância específica ${specificInstanceId}`);
+        resolvedInstanceId = specificInstanceId;
+      }
+      
+      if (resolvedInstanceId) {
+        try {
+          console.log(`loadMessages: Carregando mensagens para conversa ${conversationId} com instância ${resolvedInstanceId}`);
+          const messages = await supabase.getWhatsAppMessages(resolvedInstanceId, conversationId);
           
           set(state => ({
             messages: {
               ...state.messages,
-              [conversationId]: messages || []
+              [conversationId]: messages as Message[] || []
             },
             loading: false
           }));
           
-          return messages || [];
+          return (messages || []) as Message[];
         } catch (msgError) {
           console.error('Erro ao carregar mensagens reais:', msgError);
           set(state => ({
