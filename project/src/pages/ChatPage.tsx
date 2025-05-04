@@ -200,11 +200,20 @@ const ChatPage: React.FC = () => {
   if (error) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="text-center">
+        <div className="text-center max-w-md">
           <AlertTriangle className="mx-auto h-12 w-12 text-yellow-500" />
           <h3 className="mt-2 text-lg font-medium text-gray-900">Erro ao carregar conversas</h3>
-          <p className="mt-1 text-gray-500">{error}</p>
-          <div className="mt-6">
+          <p className="mt-1 text-gray-500">
+            {typeof error === 'object' && error.message 
+              ? error.message 
+              : String(error)}
+          </p>
+          <p className="mt-1 text-gray-400 text-sm">
+            {error.toString().includes('column') 
+              ? 'Erro no esquema do banco de dados. Contate o administrador.' 
+              : 'Verifique se a instância do WhatsApp está conectada corretamente.'}
+          </p>
+          <div className="mt-6 flex justify-center space-x-4">
             <button
               onClick={() => {
                 console.log('Tentando novamente após erro:', error);
@@ -212,6 +221,7 @@ const ChatPage: React.FC = () => {
                 if (instanceId) {
                   console.log('Recarregando conversas para instância:', instanceId);
                   loadConversations(instanceId);
+                  toast.success('Tentando recarregar conversas...');
                 } else {
                   console.log('Nenhuma instância disponível para recarregar conversas');
                   toast.error('Conecte uma instância do WhatsApp primeiro');
@@ -221,6 +231,14 @@ const ChatPage: React.FC = () => {
             >
               Tentar novamente
             </button>
+            {!instanceId && (
+              <button
+                onClick={() => navigate('/settings')}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50"
+              >
+                Configurações
+              </button>
+            )}
           </div>
         </div>
       </div>

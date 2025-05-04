@@ -111,25 +111,25 @@ const HumanizedAgent: React.FC = () => {
   };
   
   const handleToggleActive = () => {
-    if (settings) {
+    if (settings && settings.is_active !== undefined) {
       updateSettings({ is_active: !settings.is_active });
     }
   };
   
   const handleModeChange = (mode: AgentMode) => {
-    if (settings) {
+    if (settings && settings.mode !== undefined) {
       updateSettings({ mode });
     }
   };
   
   const handleModelChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    if (settings) {
+    if (settings && settings.openai_model !== undefined) {
       updateSettings({ openai_model: e.target.value });
     }
   };
   
   const handleTemperatureChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (settings) {
+    if (settings && settings.temperature !== undefined) {
       updateSettings({ temperature: parseFloat(e.target.value) });
     }
   };
@@ -422,7 +422,7 @@ const HumanizedAgent: React.FC = () => {
                     {/* Temperature slider */}
                     <div>
                       <label htmlFor="temperature" className="block text-sm font-medium text-gray-700">
-                        Temperatura: {settings.temperature.toFixed(1)}
+                        Temperatura: {settings?.temperature !== undefined ? settings.temperature.toFixed(1) : '0.0'}
                       </label>
                       <input
                         id="temperature"
@@ -430,7 +430,7 @@ const HumanizedAgent: React.FC = () => {
                         min="0"
                         max="1"
                         step="0.1"
-                        value={settings.temperature}
+                        value={settings?.temperature !== undefined ? settings.temperature : 0}
                         onChange={handleTemperatureChange}
                         className="mt-1 block w-full"
                       />
