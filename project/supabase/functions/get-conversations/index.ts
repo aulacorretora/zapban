@@ -20,7 +20,7 @@ serve(async (req: Request) => {
   }
 
   let instanceId: string | null = null;
-  let requestBody: any = null;
+  let requestBody: Record<string, unknown> = {};
   
   try {
     const authHeader = req.headers.get('Authorization');
@@ -46,7 +46,7 @@ serve(async (req: Request) => {
         const clonedReq = req.clone();
         requestBody = await clonedReq.json();
         console.log("Request body:", JSON.stringify(requestBody));
-        instanceId = requestBody.instance_id;
+        instanceId = requestBody.instance_id as string;
         console.log("instance_id from body:", instanceId);
       } catch (e) {
         console.error("Error parsing request body:", e);
@@ -163,7 +163,23 @@ serve(async (req: Request) => {
     }
     
     console.log("Processing messages for conversations");
-    const groupedByContact: Record<string, any[]> = {};
+    
+    type MessageRecord = {
+      id: string;
+      from_number?: string;
+      to_number?: string;
+      contact_number?: string;
+      content?: string;
+      message?: string;
+      created_at?: string;
+      timestamp?: string;
+      direction?: string;
+      type?: string;
+      media_type?: string;
+      media_url?: string;
+    };
+    
+    const groupedByContact: Record<string, MessageRecord[]> = {};
     
     data.forEach(message => {
       const contactNumber = message.from_number || message.to_number || message.contact_number;
@@ -183,10 +199,26 @@ serve(async (req: Request) => {
       const lastMessage = messages[0]; // messages are ordered by created_at desc
       
       return {
-        name: phoneNumber, // Usando o número como nome (poderia ser atualizado com uma API de contatos)
-        number: phoneNumber,
-        lastMessage: lastMessage.content || lastMessage.message,
-        timestamp: lastMessage.created_at || lastMessage.timestamp
+        id: phoneNumber, // Using phone number as id
+        contact: {
+          id: phoneNumber,
+          name: phoneNumber, // Placeholder name (could be updated with contacts API)
+          phoneNumber,
+          profilePicUrl: null,
+          isOnline: false,
+          lastSeen: null,
+        },
+        lastMessage: {
+          id: `${lastMessage.id}`,
+          content: lastMessage.content || lastMessage.message,
+          timestamp: lastMessage.created_at || lastMessage.timestamp,
+          isFromMe: lastMessage.direction === 'OUTBOUND' || false, // Check direction if available
+          status: 'DELIVERED',
+          type: lastMessage.type || lastMessage.media_type || 'TEXT',
+          mediaUrl: lastMessage.media_url || null,
+        },
+        unreadCount: 0, // Could be calculated based on read status
+        updatedAt: lastMessage.created_at || lastMessage.timestamp,
       };
     });
     
