@@ -93,7 +93,11 @@ const ChatPage: React.FC = () => {
             
             if (!response.ok) {
               console.error(`Erro na resposta da API: ${response.status} ${response.statusText}`);
-              loadConversations(instanceId);
+              const errorMessage = `Erro na API: ${response.status} ${response.statusText}`;
+              useChatStore.setState({ 
+                error: errorMessage, 
+                conversationsLoading: false 
+              });
               return;
             }
             
@@ -102,13 +106,19 @@ const ChatPage: React.FC = () => {
             
             if (!data) {
               console.error('Sem dados recebidos da edge function');
-              loadConversations(instanceId);
+              useChatStore.setState({ 
+                error: 'Sem dados recebidos da API', 
+                conversationsLoading: false 
+              });
               return;
             }
             
             if (data.error) {
               console.error('Erro retornado pela edge function:', data.error);
-              loadConversations(instanceId);
+              useChatStore.setState({ 
+                error: typeof data.error === 'string' ? data.error : 'Erro retornado pela API', 
+                conversationsLoading: false 
+              });
               return;
             }
             
@@ -122,11 +132,17 @@ const ChatPage: React.FC = () => {
             }
           } catch (err) {
             console.error('Erro ao carregar conversas do edge function:', err);
-            loadConversations(instanceId);
+            useChatStore.setState({ 
+              error: err instanceof Error ? err.message : 'Erro ao carregar conversas', 
+              conversationsLoading: false 
+            });
           }
         } catch (error) {
           console.error('Erro de autenticação:', error);
-          loadConversations(instanceId);
+          useChatStore.setState({ 
+            error: error instanceof Error ? error.message : 'Erro de autenticação', 
+            conversationsLoading: false 
+          });
         }
       };
       

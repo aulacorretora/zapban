@@ -209,7 +209,7 @@ export const updateInstanceStatus = async (instanceId: string, status: string) =
       console.error('Error updating instance status in Supabase:', error);
       return { id: instanceId, status };
     }
-    
+
     if (!data || (Array.isArray(data) && data.length === 0)) {
       console.warn(`No WhatsApp instance found with ID: ${instanceId}`);
       return { id: instanceId, status };
@@ -240,7 +240,7 @@ export const connectWhatsApp = async (instanceId: string) => {
     }
 
     const data = await response.json();
-    
+
     setTimeout(async () => {
       try {
         await getInstanceStatus(instanceId);
@@ -248,7 +248,7 @@ export const connectWhatsApp = async (instanceId: string) => {
         console.warn('Failed to update status after connect:', statusError);
       }
     }, 1000);
-    
+
     return data;
   } catch (error) {
     console.error('Error connecting to WhatsApp:', error);
@@ -282,7 +282,7 @@ export const getInstanceStatus = async (instanceId: string) => {
       }
     } catch (apiError) {
       console.warn('VPS API status endpoint not available, trying Supabase Functions:', apiError);
-      
+
       try {
         const supabaseResponse = await fetch(
           `${supabaseUrl}/functions/v1/whatsapp-status?id=${instanceId}`,
@@ -293,7 +293,7 @@ export const getInstanceStatus = async (instanceId: string) => {
             }
           }
         );
-        
+
         if (supabaseResponse.ok) {
           const data = await supabaseResponse.json();
           if (data && data.status) {
@@ -317,12 +317,12 @@ export const getInstanceStatus = async (instanceId: string) => {
       console.error('Error getting instance status from Supabase:', error);
       return { status: 'DISCONNECTED', connection_data: null };
     }
-    
+
     if (!data || data.length === 0) {
       console.warn(`No WhatsApp instance found with ID: ${instanceId}`);
       return { status: 'DISCONNECTED', connection_data: null };
     }
-    
+
     return data[0];
   } catch (error) {
     console.error('Error getting instance status:', error);
@@ -343,7 +343,7 @@ export const updateInstanceName = async (instanceId: string, name: string) => {
       console.error('Error updating instance name:', error);
       throw error;
     }
-    
+
     if (!data || (Array.isArray(data) && data.length === 0)) {
       console.warn(`No WhatsApp instance found with ID: ${instanceId}`);
       return { id: instanceId, name };
@@ -370,11 +370,11 @@ export const disconnectInstance = async (instanceId: string) => {
 export const deleteWhatsappInstance = async (instanceId: string) => {
   try {
     const { status } = await getInstanceStatus(instanceId);
-    
+
     if (status === 'CONNECTED') {
       await disconnectInstance(instanceId);
     }
-    
+
     const { error } = await supabase
       .from('whatsapp_instances')
       .delete()
@@ -448,18 +448,18 @@ export const getWhatsAppConversations = async (instanceId: string) => {
     console.log(`Fetching conversations for instance: ${instanceId}`);
     
     const specificInstanceId = '160b6ea2-1cc4-48c3-ba9c-1b0ffaa8faf3';
-    
+
     if (instanceId !== specificInstanceId) {
       console.warn(`Usando instância específica ${specificInstanceId} em vez de ${instanceId}`);
       instanceId = specificInstanceId;
     }
-    
+
     try {
       const { data: instanceData, error: instanceError } = await supabase
         .from('whatsapp_instances')
         .select('id, status')
         .eq('id', instanceId);
-      
+
       if (instanceError) {
         console.error('Error checking WhatsApp instance:', instanceError);
         return []; // Retornar array vazio em caso de erro
@@ -473,42 +473,42 @@ export const getWhatsAppConversations = async (instanceId: string) => {
       console.error('Error when checking WhatsApp instance:', instanceCheckError);
       return []; // Retornar array vazio em caso de erro
     }
-    
+
     const { data, error } = await supabase
       .from('messages')
       .select('id, from_number, to_number, content, created_at, media_url, user_id, contact_number, message, timestamp, direction, media_type')
       .eq('instance_id', instanceId)
       .order('created_at', { ascending: false });
-    
+
     if (error) {
       console.error('Error fetching messages:', error);
       return []; // Retornar array vazio em caso de erro
     }
-    
+
     if (!data || data.length === 0) {
       console.log('No messages found for instance:', instanceId);
       return []; // Retornar array vazio se não houver mensagens
     }
-    
+
     const groupedByContact: Record<string, any[]> = {};
-    
+
     data.forEach((message: any) => {
       const contactNumber = message.contact_number || message.from_number || message.to_number;
-      
+
       if (!contactNumber) {
         console.warn("Mensagem sem número de contato:", message);
         return;
       }
-      
+
       if (!groupedByContact[contactNumber]) {
         groupedByContact[contactNumber] = [];
       }
       groupedByContact[contactNumber].push(message);
     });
-    
+
     const conversations = Object.entries(groupedByContact).map(([phoneNumber, messages]) => {
       const lastMessage = messages[0]; // messages are ordered by created_at desc
-      
+
       return {
         id: phoneNumber, // Using phone number as id
         contact: {
@@ -525,14 +525,14 @@ export const getWhatsAppConversations = async (instanceId: string) => {
           timestamp: lastMessage.created_at || lastMessage.timestamp,
           isFromMe: lastMessage.direction === 'OUTBOUND' || false, // Check direction if available
           status: 'DELIVERED',
-          type: lastMessage.type || lastMessage.media_type || 'TEXT',
+          type: lastMessage.media_type || 'TEXT',
           mediaUrl: lastMessage.media_url || null,
         },
         unreadCount: 0, // Could be calculated based on read status
         updatedAt: lastMessage.created_at || lastMessage.timestamp,
       };
     });
-    
+
     return conversations;
   } catch (error) {
     console.error('Error fetching WhatsApp conversations:', error);
@@ -545,53 +545,40 @@ export const getWhatsAppMessages = async (instanceId: string, contactNumber: str
   try {
     const { data, error } = await supabase
       .from('messages')
-      .select('*')
+      .select('id, from_number, to_number, content, created_at, media_url, user_id, contact_number, message, timestamp, direction, media_type')
       .eq('instance_id', instanceId)
       .or(`from_number.eq.${contactNumber},to_number.eq.${contactNumber},contact_number.eq.${contactNumber}`)
       .order('created_at', { ascending: true });
-    
+
     let messagesData = data;
     let messagesError = error;
 
-    if (messagesError?.message?.includes("does not exist")) {
-      console.log('Erro com coluna inexistente em getWhatsAppMessages, tentando consulta modificada');
-      const fallbackResult = await supabase
-        .from('messages')
-        .select('id, from_number, to_number, content, created_at, media_url, user_id, contact_number, message, timestamp, direction, media_type')
-        .eq('instance_id', instanceId)
-        .or(`from_number.eq.${contactNumber},to_number.eq.${contactNumber},contact_number.eq.${contactNumber}`)
-        .order('created_at', { ascending: true });
-      
-      messagesData = fallbackResult.data;
-      messagesError = fallbackResult.error;
-    }
-    
-    if ((!messagesData || messagesData.length === 0) && !messagesError?.message?.includes("does not exist")) {
+    if (!messagesData || messagesData.length === 0) {
       console.log('Não foi possível encontrar mensagens na tabela "messages", tentando na tabela "message"');
       const fallbackResult = await supabase
         .from('message')
-        .select('id, from_number, to_number, content, created_at, media_url, user_id')
+        .select('id, from_number, to_number, content, created_at, media_url, user_id, contact_number, message, timestamp, direction, media_type')
         .eq('instance_id', instanceId)
         .or(`from_number.eq.${contactNumber},to_number.eq.${contactNumber}`)
         .order('created_at', { ascending: true });
-      
-      messagesData = fallbackResult.data;
+
+      messagesData = fallbackResult.data as any;
       messagesError = fallbackResult.error;
     }
-    
+
     if (messagesError) throw messagesError;
-    
+
     const messages = messagesData?.map(message => ({
       id: `${message.id}`,
       conversationId: contactNumber,
       content: message.content || message.message,
       timestamp: message.created_at || message.timestamp,
-      isFromMe: message.direction === 'OUTBOUND' || message.to_number === contactNumber, 
+      isFromMe: message.direction === 'OUTBOUND' || message.to_number === contactNumber,
       status: 'DELIVERED',
-      type: message.type || message.media_type || 'TEXT',
+      type: message.media_type || 'TEXT',
       mediaUrl: message.media_url || null,
     }));
-    
+
     return messages || [];
   } catch (error) {
     console.error('Error fetching WhatsApp messages:', error);
@@ -635,35 +622,16 @@ export const sendWhatsAppMessage = async (instanceId: string, contactNumber: str
         contact_number: contactNumber,
         content: content,
         direction: 'OUTBOUND',
-        type: mediaType || 'TEXT',
+        media_type: mediaType || 'TEXT',
         media_url: mediaUrl || null,
         created_at: new Date().toISOString()
       })
       .select()
       .single();
 
-    if (error?.message?.includes("does not exist")) {
-      console.log('Erro com coluna inexistente em sendWhatsAppMessage, tentando inserção sem a coluna type');
-      const fallbackResult = await supabase
-        .from('messages')
-        .insert({
-          instance_id: instanceId,
-          contact_number: contactNumber,
-          content: content,
-          direction: 'OUTBOUND',
-          media_type: mediaType || 'TEXT',
-          media_url: mediaUrl || null,
-          created_at: new Date().toISOString()
-        })
-        .select()
-        .single();
-      
-      if (fallbackResult.error) throw fallbackResult.error;
-      return fallbackResult.data;
-    }
-    
+
     if (error) throw error;
-    
+
     return data;
   } catch (error) {
     console.error('Error sending WhatsApp message:', error);
