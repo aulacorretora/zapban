@@ -47,62 +47,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
     } catch (error) {
       console.error('Erro ao carregar conversas:', error);
       
-      const demoContacts: Contact[] = [
-        {
-          id: '1',
-          name: 'João Silva',
-          phoneNumber: '+5511912345678',
-          profilePicUrl: null,
-          isOnline: true,
-          lastSeen: new Date().toISOString()
-        },
-        {
-          id: '2',
-          name: 'Maria Souza',
-          phoneNumber: '+5511987654321',
-          profilePicUrl: null,
-          isOnline: false,
-          lastSeen: new Date(Date.now() - 3600000).toISOString()
-        }
-      ];
-      
-      const demoConversations: Conversation[] = [
-        {
-          id: '1',
-          contact: demoContacts[0],
-          lastMessage: {
-            id: '1',
-            conversationId: '1',
-            content: 'Olá, como posso ajudar?',
-            timestamp: new Date().toISOString(),
-            isFromMe: true,
-            status: MessageStatus.READ
-          },
-          unreadCount: 0,
-          updatedAt: new Date().toISOString()
-        },
-        {
-          id: '2',
-          contact: demoContacts[1],
-          lastMessage: {
-            id: '2',
-            conversationId: '2',
-            content: 'Obrigado pela informação!',
-            timestamp: new Date(Date.now() - 3600000).toISOString(),
-            isFromMe: false,
-            status: MessageStatus.DELIVERED
-          },
-          unreadCount: 2,
-          updatedAt: new Date(Date.now() - 3600000).toISOString()
-        }
-      ];
-      
       set({ 
         error: "Falha ao carregar conversas", 
         conversationsLoading: false,
-        conversations: demoConversations 
+        conversations: [] // Retornar array vazio em vez de dados demo
       });
-      return demoConversations;
+      return [];
     }
   },
   
@@ -146,50 +96,28 @@ export const useChatStore = create<ChatState>((set, get) => ({
           return messages || [];
         } catch (msgError) {
           console.error('Erro ao carregar mensagens reais:', msgError);
+          set(state => ({
+            messages: {
+              ...state.messages,
+              [conversationId]: []
+            },
+            loading: false,
+            error: 'Falha ao carregar mensagens'
+          }));
+          return [];
         }
       }
-      
-      const demoMessages: Message[] = [
-        {
-          id: '1',
-          conversationId: conversationId,
-          content: 'Olá, como posso ajudar?',
-          type: MessageType.TEXT,
-          timestamp: new Date(Date.now() - 3600000).toISOString(),
-          isFromMe: true,
-          status: MessageStatus.READ,
-          isAIResponse: true
-        },
-        {
-          id: '2',
-          conversationId: conversationId,
-          content: 'Preciso de informações sobre o produto',
-          type: MessageType.TEXT,
-          timestamp: new Date(Date.now() - 1800000).toISOString(),
-          isFromMe: false,
-          status: MessageStatus.READ
-        },
-        {
-          id: '3',
-          conversationId: conversationId,
-          content: 'Claro! Nosso produto oferece automação completa de atendimento via WhatsApp com integração à IA. Você pode configurar respostas automáticas, processamento de mídia e muito mais.',
-          type: MessageType.TEXT,
-          timestamp: new Date(Date.now() - 900000).toISOString(),
-          isFromMe: true,
-          status: MessageStatus.READ,
-          isAIResponse: true
-        }
-      ];
       
       set(state => ({
         messages: {
           ...state.messages,
-          [conversationId]: demoMessages
+          [conversationId]: []
         },
-        loading: false
+        loading: false,
+        error: 'Instância não especificada'
       }));
       
-      return demoMessages;
+      return [];
     } catch (error) {
       console.error('Erro ao carregar mensagens:', error);
       set({ error: 'Falha ao carregar mensagens', loading: false });

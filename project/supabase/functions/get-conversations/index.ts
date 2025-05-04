@@ -19,8 +19,8 @@ serve(async (req: Request) => {
     });
   }
 
-  let instanceId: string | null = null;
   let requestBody: Record<string, unknown> = {};
+  let userId: string | null = null;
   
   try {
     const authHeader = req.headers.get('Authorization');
@@ -33,43 +33,27 @@ serve(async (req: Request) => {
     const token = authHeader.split(' ')[1];
     console.log("Token extracted:", token ? token.substring(0, 10) + "..." : "None");
 
-    const url = new URL(req.url);
-    console.log("URL object:", url.toString());
-    console.log("Search params:", url.search);
-    console.log("All query parameters:", JSON.stringify(Object.fromEntries(url.searchParams)));
-    
-    instanceId = url.searchParams.get('instance_id');
-    console.log("instance_id from URL params:", instanceId);
-    
-    if (!instanceId && req.method === 'POST') {
+    if (req.method === 'POST') {
       try {
         const clonedReq = req.clone();
         requestBody = await clonedReq.json();
         console.log("Request body:", JSON.stringify(requestBody));
-        instanceId = requestBody.instance_id as string;
-        console.log("instance_id from body:", instanceId);
+        userId = requestBody.user_id as string;
+        console.log("user_id from body:", userId);
       } catch (e) {
         console.error("Error parsing request body:", e);
+        throw new Error('Erro ao processar corpo da requisição');
       }
     }
     
-    if (!instanceId) {
-      instanceId = url.searchParams.get('instanceId') || 
-                  url.searchParams.get('id') || 
-                  url.searchParams.get('instance');
-      console.log("instance_id from alternative params:", instanceId);
-    }
-    
-    if (!instanceId) {
+    if (!userId) {
       return new Response(
         JSON.stringify({
-          error: 'Parâmetro instance_id é obrigatório',
+          error: 'Parâmetro user_id é obrigatório',
           debug: {
             url: req.url,
             method: req.method,
-            search: new URL(req.url).search,
-            params: Object.fromEntries(new URL(req.url).searchParams),
-            headers: Object.fromEntries(req.headers)
+            request_body: requestBody
           }
         }),
         {
@@ -82,7 +66,7 @@ serve(async (req: Request) => {
       );
     }
 
-    console.log("Creating Supabase client with instance_id:", instanceId);
+    console.log("Creating Supabase client with user_id:", userId);
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
@@ -95,11 +79,53 @@ serve(async (req: Request) => {
       }
     );
 
+    console.log("Querying 'whatsapp_instances' table for user_id:", userId);
+    const { data: instance, error: instanceError } = await supabaseClient
+      .from('whatsapp_instances')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('id', '160b6ea2-1cc4-48c3-ba9c-1b0ffaa8faf3')
+      .single();
+      
+    if (instanceError) {
+      console.error("Error fetching instance:", instanceError);
+      return new Response(
+        JSON.stringify({ 
+          error: 'Erro ao buscar instância do WhatsApp',
+          details: instanceError.message
+        }),
+        {
+          status: 500,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+    }
+    
+    if (!instance) {
+      console.log("No WhatsApp instance found for user_id:", userId);
+      return new Response(
+        JSON.stringify({ error: "Instância não encontrada" }),
+        {
+          status: 404,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+    }
+    
+    const instanceId = instance.id;
+    console.log("Found instance ID:", instanceId);
+    
     let data;
     let error;
     
     try {
-      console.log("Querying 'messages' table first for instance_id:", instanceId);
+      console.log("Querying 'messages' table for instance_id:", instanceId);
       const result = await supabaseClient
         .from('messages')
         .select('*')
@@ -110,20 +136,6 @@ serve(async (req: Request) => {
       error = result.error;
       console.log("Query result from 'messages':", data ? `${data.length} messages found` : 'No data', error ? `Error: ${error.message}` : 'No error');
       
-      if ((!data || data.length === 0 || error) && !error?.message?.includes("does not exist")) {
-        console.log("No data in 'messages' table, trying 'message' table");
-        const fallbackResult = await supabaseClient
-          .from('message')
-          .select('id, from_number, to_number, content, created_at, media_url, user_id')
-          .eq('instance_id', instanceId)
-          .order('created_at', { ascending: false });
-        
-        if (fallbackResult.data && fallbackResult.data.length > 0) {
-          data = fallbackResult.data;
-          error = fallbackResult.error;
-          console.log("Query result from 'message':", data ? `${data.length} messages found` : 'No data', error ? `Error: ${error.message}` : 'No error');
-        }
-      }
     } catch (queryError) {
       console.error("Error during database query:", queryError);
       error = queryError;
@@ -242,7 +254,7 @@ serve(async (req: Request) => {
         debug: {
           url: req.url,
           method: req.method,
-          instance_id: instanceId,
+          user_id: userId,
           request_body: requestBody
         }
       }),

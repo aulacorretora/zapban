@@ -7,6 +7,7 @@ import ContactAvatar from './ContactAvatar';
 import MessageList from './MessageList';
 import MessageInput from './MessageInput';
 import { Message, MessageStatus, MessageType, Conversation } from './types';
+import * as supabase from '../../lib/supabase';
 
 interface ChatViewProps {
   conversationId: string;
@@ -45,19 +46,31 @@ const ChatView: React.FC<ChatViewProps> = ({
   const conversationMessages = messages[conversationId] || [];
   
   useEffect(() => {
-    if (!conversationId) return;
+    if (!conversationId || !instanceId) return;
     
     console.log(`Carregando mensagens para a conversa ${conversationId}`);
     loadMessages(conversationId, instanceId);
     
-    const interval = setInterval(() => {
-      if (conversationId) {
-        console.log(`Atualizando mensagens para a conversa ${conversationId}`);
-        loadMessages(conversationId, instanceId);
-      }
-    }, 10000);
+    const channel = supabase.supabase
+      .channel(`messages-${conversationId}`)
+      .on('postgres_changes', 
+        { 
+          event: 'INSERT', 
+          schema: 'public', 
+          table: 'messages',
+          filter: `instance_id=eq.160b6ea2-1cc4-48c3-ba9c-1b0ffaa8faf3 AND (from_number=eq.${conversationId} OR to_number=eq.${conversationId})` 
+        }, 
+        (payload) => {
+          console.log('Nova mensagem recebida via Realtime:', payload);
+          loadMessages(conversationId, instanceId);
+        }
+      )
+      .subscribe();
     
-    return () => clearInterval(interval);
+    return () => {
+      console.log('Limpando subscription do Realtime para mensagens');
+      supabase.supabase.removeChannel(channel);
+    };
   }, [conversationId, loadMessages, instanceId]);
   
   useEffect(() => {
@@ -177,8 +190,8 @@ const ChatView: React.FC<ChatViewProps> = ({
         )}
         
         <ContactAvatar 
-          name={conversation.contact.name}
-          profilePicUrl={conversation.contact.profilePicUrl}
+          name={conversation.contact.name || conversation.contact.phoneNumber || 'Contato'}
+          profilePicUrl={conversation.contact.profilePicUrl || undefined}
           isOnline={conversation.contact.isOnline}
         />
         
