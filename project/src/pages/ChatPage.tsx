@@ -146,22 +146,32 @@ const ChatPage: React.FC = () => {
   }, [conversations, selectedConversationId, selectConversation]);
 
   useEffect(() => {
-    console.log(`Configurando polling para atualizações de conversas da instância ${instanceId}`);
+    console.log(`Configurando Realtime para conversas da instância ${instanceId}`);
     
-    let pollInterval: NodeJS.Timeout | null = null;
+    if (!instanceId) return;
     
-    if (instanceId) {
-      pollInterval = setInterval(() => {
-        console.log(`Polling: Atualizando conversas para instância ${instanceId}`);
-        loadConversations(instanceId);
-      }, 10000); // Polling a cada 10 segundos
-    }
+    loadConversations(instanceId);
+    
+    const channel = supabase.supabase
+      .channel('conversations-changes')
+      .on('postgres_changes', 
+        { 
+          event: 'INSERT', 
+          schema: 'public', 
+          table: 'messages', 
+          filter: `instance_id=eq.160b6ea2-1cc4-48c3-ba9c-1b0ffaa8faf3` 
+        }, 
+        (payload) => {
+          console.log('Nova mensagem recebida via Realtime:', payload);
+          // Recarregar conversas quando novas mensagens chegarem
+          loadConversations(instanceId);
+        }
+      )
+      .subscribe();
     
     return () => {
-      if (pollInterval) {
-        console.log('Limpando intervalo de polling');
-        clearInterval(pollInterval);
-      }
+      console.log('Limpando subscription do Realtime');
+      supabase.supabase.removeChannel(channel);
     };
   }, [instanceId, loadConversations]);
 
